@@ -5,7 +5,7 @@ import './globals.css'
 const inter         = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://stacks-quest.vercel.app'
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://stacks-quest-ten.vercel.app'
 
 export const viewport: Viewport = {
   width:        'device-width',
