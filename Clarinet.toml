@@ -1,0 +1,21 @@
+[project]
+name = "stacks-quest"
+description = "Daily on-chain puzzle game on Stacks"
+authors = ["wkalidev <wkalidev@base2stacks.io>"]
+telemetry = false
+cache_dir = "./.cache"
+requirements = []
+
+[repl]
+costs_version = 2
+parser_version = 2
+
+[contracts.b2s-token-v4]
+path = "contracts/b2s-token-v4.clar"
+clarity_version = 2
+epoch = 2.5
+
+[contracts.stacks-quest]
+path = "contracts/stacks-quest.clar"
+clarity_version = 2
+epoch = 2.5
