@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import { openContractCall } from '@stacks/connect'
 import { fetchCallReadOnlyFunction, cvToValue, uintCV, PostConditionMode, AnchorMode } from '@stacks/transactions'
-import { network, APP_DETAILS } from './useWallet'
+import { STACKS_MAINNET } from '@stacks/network'
+
+const network     = STACKS_MAINNET
+const APP_DETAILS = { name: 'Stacks Quest', icon: 'https://stacks-quest.vercel.app/logo.svg' }
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const CONTRACT_NAME    = process.env.NEXT_PUBLIC_CONTRACT_NAME    || 'stacks-quest'
