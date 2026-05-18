@@ -1,50 +1,71 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { showConnect, UserSession, AppConfig } from '@stacks/connect'
-import { STACKS_MAINNET } from "@stacks/network"
 
-const appConfig  = new AppConfig(['store_write', 'publish_data'])
-const userSession = new UserSession({ appConfig })
-export const network = STACKS_MAINNET
-
-export const APP_DETAILS = {
-  name: 'Stacks Quest',
-  icon: 'https://stacks-quest.vercel.app/logo.svg',
+type WalletState = {
+  mounted: boolean
+  isConnected: boolean
+  address: string | null
+  connect: () => Promise<void>
+  disconnect: () => void
 }
 
-export function useWallet() {
+export function useWallet(): WalletState {
   const [mounted,     setMounted]     = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [address,     setAddress]     = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
-    if (userSession.isUserSignedIn()) {
-      const data = userSession.loadUserData()
-      setIsConnected(true)
-      setAddress(data.profile.stxAddress.mainnet)
-    }
+    try {
+      const saved = localStorage.getItem('sq_address')
+      if (saved) { setIsConnected(true); setAddress(saved) }
+    } catch {}
   }, [])
 
-  const connect = () => {
-    showConnect({
-      appDetails: APP_DETAILS,
-      userSession,
-      onFinish: () => {
-        const data = userSession.loadUserData()
+  const connect = async () => {
+    // Try Leather first (LeatherProvider), then StacksProvider
+    const provider =
+      (window as any).LeatherProvider ||
+      (window as any).StacksProvider
+
+    if (!provider) {
+      window.open('https://leather.io/install-extension', '_blank')
+      return
+    }
+
+    try {
+      let addr: string | null = null
+
+      // Leather new API
+      if ((window as any).LeatherProvider) {
+        const res = await (window as any).LeatherProvider.request('getAddresses')
+        addr = res?.result?.addresses?.find((a: any) => a.symbol === 'STX')?.address
+      }
+
+      // Fallback: StacksProvider
+      if (!addr) {
+        const res = await provider.request('getAddresses', null)
+        addr =
+          res?.result?.addresses?.find((a: any) => a.symbol === 'STX')?.address ||
+          res?.addresses?.find((a: any) => a.symbol === 'STX')?.address
+      }
+
+      if (addr) {
+        setAddress(addr)
         setIsConnected(true)
-        setAddress(data.profile.stxAddress.mainnet)
-      },
-      onCancel: () => {},
-    })
+        localStorage.setItem('sq_address', addr)
+      }
+    } catch (e: any) {
+      console.error('[useWallet] connect error:', e?.message || e)
+    }
   }
 
   const disconnect = () => {
-    userSession.signUserOut()
-    setIsConnected(false)
     setAddress(null)
+    setIsConnected(false)
+    try { localStorage.removeItem('sq_address') } catch {}
   }
 
-  return { mounted, isConnected, address, connect, disconnect, userSession }
+  return { mounted, isConnected, address, connect, disconnect }
 }

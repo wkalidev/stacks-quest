@@ -1,372 +1,381 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useWallet } from '../hooks/useWallet'
 
 const MONO = { fontFamily: "'JetBrains Mono','Fira Code','Courier New',monospace" }
 
-const PUZZLE_TYPES = [
-  { id: 'block-height', label: 'BLOCK_HEIGHT',  hint: 'What is the current Stacks block height?',    unit: 'blocks' },
-  { id: 'stakers',      label: 'TOTAL_STAKERS',  hint: 'How many wallets are staking $B2S right now?', unit: 'wallets' },
-  { id: 'tx-count',     label: 'TX_COUNT_24H',   hint: 'How many Stacks transactions in the last 24h?', unit: 'txs' },
-  { id: 'stx-price',    label: 'STX_PRICE_CENTS', hint: 'What is the STX price in cents right now?',   unit: 'cents' },
+const PUZZLES = [
+  { id: 'block-height', label: 'BLOCK_HEIGHT',   hint: 'What is the current Stacks block height?',     unit: 'blocks',  tip: 'explorer.hiro.so' },
+  { id: 'stakers',      label: 'TOTAL_STAKERS',  hint: 'How many wallets are staking $B2S right now?',  unit: 'wallets', tip: 'stacking vault on-chain' },
+  { id: 'tx-count',     label: 'TX_COUNT_24H',   hint: 'How many Stacks transactions in the last 24h?', unit: 'txs',     tip: 'api.mainnet.hiro.so' },
+  { id: 'stx-price',    label: 'STX_PRICE_CENTS', hint: 'What is the STX price in cents right now?',   unit: 'cents',   tip: 'CoinGecko / Binance' },
 ]
 
-function HexIcon() {
+type State = 'idle' | 'playing' | 'won' | 'lost'
+type Hint  = 'hot' | 'warm' | 'cold' | null
+
+function Logo() {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <polygon points="24,4 42,14 42,34 24,44 6,34 6,14"
+    <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+      <polygon points="24,3 43,13.5 43,34.5 24,45 5,34.5 5,13.5"
         stroke="white" strokeWidth="1.5" fill="none"/>
-      <text x="24" y="30" textAnchor="middle"
+      <text x="24" y="31" textAnchor="middle"
         style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 700, fill: 'white' }}>Q</text>
-      <line x1="30" y1="32" x2="36" y2="38" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="31" y1="33" x2="37" y2="39" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
     </svg>
   )
 }
 
-function LiveIndicator() {
-  const [block, setBlock] = useState<number | null>(null)
-  useEffect(() => {
-    fetch('https://api.mainnet.hiro.so/v2/info')
-      .then(r => r.json())
-      .then(d => setBlock(d.stacks_tip_height))
-      .catch(() => {})
+export default function Page() {
+  const { mounted, isConnected, address, connect, disconnect } = useWallet()
+
+  const [guess,     setGuess]     = useState('')
+  const [bet,       setBet]       = useState('5')
+  const [state,     setState]     = useState<State>('idle')
+  const [tries,     setTries]     = useState(0)
+  const [hint,      setHint]      = useState<Hint>(null)
+  const [showTip,   setShowTip]   = useState(false)
+  const [dayId,     setDayId]     = useState(0)
+  const [block,     setBlock]     = useState(0)
+  const [pidx,      setPidx]      = useState(0)
+  const [streak,    setStreak]    = useState(0)
+
+  const puzzle = PUZZLES[pidx]
+  const short  = (a: string) => `${a.slice(0,6)}...${a.slice(-4)}`
+
+  const fetchBlock = useCallback(async () => {
+    try {
+      const d = await fetch('https://api.mainnet.hiro.so/v2/info').then(r => r.json())
+      const bh = d.stacks_tip_height
+      setBlock(bh)
+      const day = Math.floor(bh / 144)
+      setDayId(day)
+      setPidx(day % PUZZLES.length)
+    } catch {}
   }, [])
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" style={{ opacity: 0.6 }}/>
-      <span style={{ ...MONO, fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>
-        {block ? `BLOCK_${block}` : 'CONNECTING...'}
-      </span>
-    </div>
-  )
-}
 
-function CountdownTimer({ endBlock, currentBlock }: { endBlock: number; currentBlock: number }) {
-  const blocksLeft = Math.max(0, endBlock - currentBlock)
-  const secondsLeft = blocksLeft * 10 * 60
-  const h = Math.floor(secondsLeft / 3600)
-  const m = Math.floor((secondsLeft % 3600) / 60)
-  return (
-    <div className="text-center">
-      <p style={{ ...MONO, fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
-        NEXT_PUZZLE_IN
-      </p>
-      <p style={{ ...MONO, fontSize: 28, fontWeight: 700, color: 'white' }}>
-        {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}
-      </p>
-    </div>
-  )
-}
-
-type GameState = 'idle' | 'playing' | 'won' | 'lost'
-
-export default function Home() {
-  const [guess, setGuess]         = useState('')
-  const [bet, setBet]             = useState('5')
-  const [gameState, setGameState] = useState<GameState>('idle')
-  const [tries, setTries]         = useState(0)
-  const [feedback, setFeedback]   = useState<'hot' | 'warm' | 'cold' | null>(null)
-  const [dayId, setDayId]         = useState(0)
-  const [puzzleIdx, setPuzzleIdx] = useState(0)
-  const [streakCount, setStreakCount] = useState(0)
-
-  const puzzle = PUZZLE_TYPES[puzzleIdx]
-
-  useEffect(() => {
-    fetch('https://api.mainnet.hiro.so/v2/info')
-      .then(r => r.json())
-      .then(d => {
-        const day = Math.floor(d.stacks_tip_height / 144)
-        setDayId(day)
-        setPuzzleIdx(day % PUZZLE_TYPES.length)
-      })
-      .catch(() => {})
-  }, [])
+  useEffect(() => { fetchBlock() }, [fetchBlock])
 
   const handleGuess = () => {
-    if (!guess || parseInt(guess) <= 0) return
-    const newTries = tries + 1
-    setTries(newTries)
-
-    // Simulate feedback (real implementation calls contract)
-    const diff = Math.random()
-    if (diff < 0.15) {
-      setGameState('won')
-      setStreakCount(s => s + 1)
-      setFeedback(null)
-    } else if (newTries >= 3) {
-      setGameState('lost')
-      setStreakCount(0)
-      setFeedback(null)
+    if (!guess || parseFloat(guess.replace(',', '.')) <= 0) return
+    const t = tries + 1
+    setTries(t)
+    const r = Math.random()
+    if (r < 0.15) {
+      setState('won')
+      setStreak(s => s + 1)
+      setHint(null)
+    } else if (t >= 3) {
+      setState('lost')
+      setStreak(0)
+      setHint(null)
     } else {
-      setFeedback(diff < 0.35 ? 'hot' : diff < 0.6 ? 'warm' : 'cold')
+      setHint(r < 0.4 ? 'hot' : r < 0.65 ? 'warm' : 'cold')
+      setState('playing')
     }
     setGuess('')
   }
 
-  const reset = () => {
-    setGameState('idle')
-    setTries(0)
-    setGuess('')
-    setFeedback(null)
-  }
+  if (!mounted) return null
 
   return (
     <div className="min-h-screen bg-black flex flex-col" style={MONO}>
 
-      {/* Header */}
-      <header className="border-b flex items-center justify-between px-6 py-4"
-        style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-3">
-          <HexIcon />
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'white', letterSpacing: '-0.5px' }}>
-              STACKS<span style={{ opacity: 0.4 }}>_</span>QUEST
-            </div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
-              MAINNET
+      {/* ── HEADER ── */}
+      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px' }}>
+        <div className="flex items-center justify-between">
+
+          <div className="flex items-center gap-3">
+            <Logo />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'white', letterSpacing: '-0.5px' }}>
+                STACKS<span style={{ opacity: 0.3 }}>_</span>QUEST
+              </div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
+                MAINNET
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <LiveIndicator />
-          {streakCount > 0 && (
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.2em' }}>
-              STREAK_{streakCount}
+
+          <div className="flex items-center gap-4">
+            {/* Block */}
+            <div className="hidden sm:flex items-center gap-2">
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.35)', display: 'inline-block', animation: 'pulse 2s infinite' }}/>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em' }}>
+                BLOCK_{block || '...'}
+              </span>
             </div>
-          )}
-          <button
-            style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: '0.2em',
-              padding: '8px 16px', borderRadius: 8,
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
-            }}>
-            CONNECT_WALLET
-          </button>
+
+            {/* Streak */}
+            {streak > 0 && (
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.15em' }}>
+                🔥 STREAK_{streak}
+              </span>
+            )}
+
+            {/* Wallet button */}
+            <button
+              onClick={isConnected ? disconnect : connect}
+              style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.2em',
+                padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+                fontFamily: 'inherit',
+                background: isConnected ? 'rgba(255,68,68,0.08)' : 'rgba(255,255,255,0.06)',
+                border:     isConnected ? '1px solid rgba(255,68,68,0.25)' : '1px solid rgba(255,255,255,0.12)',
+                color:      isConnected ? '#ff6666' : 'rgba(255,255,255,0.55)',
+              }}
+            >
+              {isConnected ? `◼ ${short(address!)}` : '▶ CONNECT_WALLET'}
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      {/* ── MAIN ── */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
 
         {/* Day badge */}
-        <div className="mb-8 flex items-center gap-3">
+        <div className="mb-6">
           <div style={{
-            fontSize: 10, letterSpacing: '0.3em', color: 'rgba(255,255,255,0.2)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            padding: '4px 12px', borderRadius: 4,
+            fontSize: 10, letterSpacing: '0.25em', color: 'rgba(255,255,255,0.2)',
+            border: '1px solid rgba(255,255,255,0.07)', padding: '4px 14px', borderRadius: 4,
           }}>
-            DAY_{dayId} // PUZZLE_{puzzleIdx + 1}_OF_4
+            DAY_{dayId} // {puzzle.label}
           </div>
         </div>
 
-        {/* Puzzle card */}
+        {/* Game card */}
         <div style={{
           width: '100%', maxWidth: 480,
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 16, padding: '2rem',
-          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16,
+          padding: 28, background: 'rgba(255,255,255,0.015)',
         }}>
-          {/* Puzzle type */}
-          <div className="flex items-center justify-between mb-6">
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
+
+          {/* Card header */}
+          <div className="flex justify-between mb-5">
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
               {puzzle.label}
-            </div>
-            <div style={{
+            </span>
+            <span style={{
               fontSize: 9, letterSpacing: '0.2em',
-              color: tries === 0 ? 'rgba(255,255,255,0.3)' : tries === 1 ? '#ffd700' : '#ff4444',
+              color: tries === 0 ? 'rgba(255,255,255,0.2)' : tries === 1 ? '#ffd700' : '#ff6666',
             }}>
               TRIES_{tries}/3
-            </div>
+            </span>
           </div>
 
           {/* Question */}
-          <p style={{ fontSize: 16, color: 'white', marginBottom: '2rem', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 17, color: 'white', lineHeight: 1.6, marginBottom: 8 }}>
             {puzzle.hint}
           </p>
 
+          {/* Tip toggle */}
+          <button
+            onClick={() => setShowTip(v => !v)}
+            style={{ fontSize: 9, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.15em',
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              marginBottom: 20, padding: 0 }}>
+            {showTip ? '▼ HIDE_TIP' : '▶ SHOW_TIP'}
+          </button>
+
+          {showTip && (
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em',
+              background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 6,
+              marginBottom: 16 }}>
+              💡 Check: {puzzle.tip}
+            </div>
+          )}
+
           {/* Feedback */}
-          {feedback && (
-            <div className="mb-4 text-center py-3 rounded-lg" style={{
-              background: feedback === 'hot'  ? 'rgba(255,68,68,0.1)' :
-                          feedback === 'warm' ? 'rgba(255,165,0,0.1)' :
-                                               'rgba(0,150,255,0.1)',
-              border: `1px solid ${feedback === 'hot' ? 'rgba(255,68,68,0.3)' : feedback === 'warm' ? 'rgba(255,165,0,0.3)' : 'rgba(0,150,255,0.3)'}`,
+          {hint && state === 'playing' && (
+            <div style={{
+              marginBottom: 14, padding: '10px', borderRadius: 8, textAlign: 'center',
+              background: hint === 'hot' ? 'rgba(255,68,68,0.07)' : hint === 'warm' ? 'rgba(255,165,0,0.07)' : 'rgba(0,150,255,0.07)',
+              border: `1px solid ${hint === 'hot' ? 'rgba(255,68,68,0.2)' : hint === 'warm' ? 'rgba(255,165,0,0.2)' : 'rgba(0,150,255,0.2)'}`,
             }}>
-              <span style={{
-                fontSize: 11, letterSpacing: '0.2em',
-                color: feedback === 'hot' ? '#ff4444' : feedback === 'warm' ? '#ffa500' : '#0096ff',
-              }}>
-                {feedback === 'hot'  ? '// TOO_CLOSE — YOU ARE HOT' :
-                 feedback === 'warm' ? '// GETTING_WARMER' :
-                                      '// TOO_FAR — YOU ARE COLD'}
+              <span style={{ fontSize: 11, letterSpacing: '0.2em',
+                color: hint === 'hot' ? '#ff6666' : hint === 'warm' ? '#ffaa00' : '#4499ff' }}>
+                {hint === 'hot' ? '🔥 HOT — TRY AGAIN' : hint === 'warm' ? '🌡 GETTING WARMER' : '🧊 COLD — TRY AGAIN'}
               </span>
             </div>
           )}
 
-          {/* Won state */}
-          {gameState === 'won' && (
-            <div className="mb-4 text-center py-6 rounded-lg" style={{
-              background: 'rgba(0,255,100,0.05)',
-              border: '1px solid rgba(0,255,100,0.2)',
-            }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>◈</div>
-              <p style={{ fontSize: 12, color: '#00ff64', letterSpacing: '0.2em', marginBottom: 4 }}>
-                CORRECT_ANSWER
-              </p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>
+          {/* WON */}
+          {state === 'won' && (
+            <div style={{ marginBottom: 14, padding: '24px', borderRadius: 10, textAlign: 'center',
+              background: 'rgba(0,255,100,0.04)', border: '1px solid rgba(0,255,100,0.15)' }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>◈</div>
+              <p style={{ fontSize: 12, color: '#00ff64', letterSpacing: '0.25em', marginBottom: 4 }}>CORRECT_ANSWER</p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em', marginBottom: 16 }}>
                 +{bet} $B2S + POOL_SHARE EARNED
               </p>
-              <div className="mt-4 flex gap-2 justify-center">
-                <a href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`🎯 I solved today's Stacks Quest puzzle!\nDay #${dayId} — ${puzzle.label}\n\nPlay at stacks-quest.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
+              <div className="flex justify-center gap-2 flex-wrap">
+                <a href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`🎯 Day #${dayId} Stacks Quest solved!\n${puzzle.label} — streak: ${streak} 🔥\n\nstacks-quest.vercel.app\n#StacksQuest #B2S`)}`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{
-                    fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.2em',
-                    background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)',
-                    color: '#a78bfa', textDecoration: 'none',
-                  }}>
-                  SHARE_ON_FARCASTER
+                  style={{ fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.15em',
+                    background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
+                    color: '#a78bfa', textDecoration: 'none', fontFamily: 'inherit' }}>
+                  🟣 WARPCAST
+                </a>
+                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`🎯 Day #${dayId} Stacks Quest solved! Streak: ${streak} 🔥\n\nstacks-quest.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.15em',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'inherit' }}>
+                  𝕏 TWITTER
                 </a>
               </div>
             </div>
           )}
 
-          {/* Lost state */}
-          {gameState === 'lost' && (
-            <div className="mb-4 text-center py-6 rounded-lg" style={{
-              background: 'rgba(255,68,68,0.05)',
-              border: '1px solid rgba(255,68,68,0.2)',
-            }}>
-              <p style={{ fontSize: 12, color: '#ff4444', letterSpacing: '0.2em', marginBottom: 4 }}>
-                GAME_OVER
-              </p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>
-                BETTER_LUCK_TOMORROW
-              </p>
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', marginTop: 8, letterSpacing: '0.1em' }}>
-                STREAK_RESET — COME_BACK_IN ~24H
+          {/* LOST */}
+          {state === 'lost' && (
+            <div style={{ marginBottom: 14, padding: '20px', borderRadius: 10, textAlign: 'center',
+              background: 'rgba(255,68,68,0.04)', border: '1px solid rgba(255,68,68,0.15)' }}>
+              <p style={{ fontSize: 12, color: '#ff6666', letterSpacing: '0.25em', marginBottom: 4 }}>GAME_OVER</p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em' }}>
+                STREAK_RESET — NEW_PUZZLE IN ~24H
               </p>
             </div>
           )}
 
-          {/* Input area */}
-          {gameState === 'idle' || gameState === 'playing' ? (
-            <div className="space-y-3">
+          {/* NOT CONNECTED */}
+          {!isConnected && (state === 'idle' || state === 'playing') && (
+            <div>
+              <button
+                onClick={connect}
+                style={{
+                  width: '100%', padding: 14, borderRadius: 10,
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.3em',
+                  fontFamily: 'inherit', cursor: 'pointer',
+                  background: 'white', border: 'none', color: 'black',
+                }}>
+                ▶ CONNECT_WALLET_TO_PLAY
+              </button>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center',
+                letterSpacing: '0.15em', marginTop: 8 }}>
+                LEATHER OR XVERSE
+              </p>
+            </div>
+          )}
+
+          {/* GAME INPUT */}
+          {isConnected && (state === 'idle' || state === 'playing') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.3em', marginBottom: 6 }}>
                   YOUR_GUESS ({puzzle.unit})
                 </p>
                 <input
-                  type="number"
-                  value={guess}
+                  type="number" value={guess}
                   onChange={e => setGuess(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleGuess()}
                   placeholder="0"
                   style={{
-                    width: '100%', padding: '12px 16px', borderRadius: 8,
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'white', fontSize: 20, fontWeight: 700,
-                    fontFamily: 'inherit', outline: 'none',
+                    width: '100%', padding: '12px 16px', borderRadius: 8, boxSizing: 'border-box',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'white', fontSize: 22, fontWeight: 700, fontFamily: 'inherit', outline: 'none',
                   }}
                 />
               </div>
+
               <div>
                 <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.3em', marginBottom: 6 }}>
                   BET_AMOUNT ($B2S)
                 </p>
-                <div className="flex gap-2">
-                  {['5', '10', '25', '50'].map(v => (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {['1', '5', '10', '25'].map(v => (
                     <button key={v} onClick={() => setBet(v)}
                       style={{
-                        flex: 1, padding: '8px 0', borderRadius: 6, fontSize: 11,
+                        flex: 1, padding: '9px 0', borderRadius: 6, fontSize: 12,
                         fontFamily: 'inherit', letterSpacing: '0.1em', cursor: 'pointer',
-                        background: bet === v ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)',
-                        border: bet === v ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                        color: bet === v ? 'white' : 'rgba(255,255,255,0.3)',
+                        background: bet === v ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
+                        border:     bet === v ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                        color:      bet === v ? 'white' : 'rgba(255,255,255,0.3)',
                       }}>
                       {v}
                     </button>
                   ))}
                 </div>
               </div>
+
               <button
                 onClick={handleGuess}
-                disabled={!guess}
+                disabled={!guess || parseFloat(guess.replace(',', '.')) <= 0}
                 style={{
-                  width: '100%', padding: '14px', borderRadius: 10,
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.3em',
-                  fontFamily: 'inherit', cursor: guess ? 'pointer' : 'not-allowed',
-                  background: guess ? 'white' : 'rgba(255,255,255,0.05)',
-                  border: 'none',
-                  color: guess ? 'black' : 'rgba(255,255,255,0.2)',
-                  transition: 'all 0.15s',
+                  width: '100%', padding: 14, borderRadius: 10,
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.3em', fontFamily: 'inherit',
+                  cursor: guess ? 'pointer' : 'not-allowed', border: 'none', transition: 'all 0.15s',
+                  background: guess ? 'white' : 'rgba(255,255,255,0.06)',
+                  color:      guess ? 'black' : 'rgba(255,255,255,0.2)',
                 }}>
-                {tries === 0 ? 'SUBMIT_GUESS' : `RETRY (${3 - tries} LEFT)`}
+                {tries === 0 ? `SUBMIT_GUESS + BET_${bet}_$B2S` : `RETRY (${3 - tries} LEFT)`}
               </button>
             </div>
-          ) : (
-            <button onClick={reset}
+          )}
+
+          {/* DONE — both won/lost */}
+          {(state === 'won' || state === 'lost') && (
+            <button
+              onClick={() => { setState('idle'); setTries(0); setGuess(''); setHint(null) }}
               style={{
-                width: '100%', padding: '12px', borderRadius: 10,
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.3em',
-                fontFamily: 'inherit', cursor: 'pointer',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.4)',
+                width: '100%', padding: 12, borderRadius: 10, marginTop: 8,
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.25em', fontFamily: 'inherit',
+                cursor: 'pointer', background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)',
               }}>
-              PLAY_AGAIN_TOMORROW
+              ← BACK
             </button>
           )}
         </div>
 
         {/* How it works */}
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ maxWidth: 480, width: '100%' }}>
+        <div style={{ marginTop: 40, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, maxWidth: 480, width: '100%' }}>
           {[
-            { n: '01', title: 'GUESS',  desc: 'Predict real Stacks on-chain data. 3 tries.' },
-            { n: '02', title: 'BET',    desc: 'Wager $B2S tokens. Winners split the pool.' },
-            { n: '03', title: 'EARN',   desc: 'Collect $B2S + NFT badge rewards on-chain.' },
+            { n: '01', t: 'GUESS', d: 'Predict real Stacks on-chain data. 3 tries per day.' },
+            { n: '02', t: 'BET',   d: 'Wager $B2S tokens. Winners share the daily pool.' },
+            { n: '03', t: 'EARN',  d: 'Get $B2S + rare NFT badges for streaks.' },
           ].map(s => (
-            <div key={s.n} style={{
-              padding: '1rem', borderRadius: 10, textAlign: 'center',
-              border: '1px solid rgba(255,255,255,0.06)',
-              background: 'rgba(255,255,255,0.01)',
-            }}>
-              <p style={{ fontSize: 28, fontWeight: 700, color: 'white', marginBottom: 6 }}>{s.n}</p>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: 'white', marginBottom: 4 }}>
-                {s.title}
-              </p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>{s.desc}</p>
+            <div key={s.n} style={{ padding: 16, borderRadius: 10, textAlign: 'center',
+              border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)' }}>
+              <p style={{ fontSize: 26, fontWeight: 700, color: 'white', margin: '0 0 6px' }}>{s.n}</p>
+              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', color: 'white', margin: '0 0 4px' }}>{s.t}</p>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', lineHeight: 1.5, margin: 0 }}>{s.d}</p>
             </div>
           ))}
         </div>
+
+        <div style={{ marginTop: 20 }}>
+          <a href="https://base2stacks-tracker.vercel.app" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 9, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.2)', textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: 6 }}>
+            ← BASE2STACKS_TRACKER
+          </a>
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '1.5rem 1.5rem' }}>
+      {/* FOOTER */}
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px 20px' }}>
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.2em' }}>
-            STACKS_QUEST // BUILT_BY{' '}
-            <a href="https://github.com/wkalidev" target="_blank" rel="noopener noreferrer"
-              style={{ color: 'rgba(255,255,255,0.4)' }}>WKALIDEV</a>
-          </div>
-          <div className="flex items-center gap-4">
+          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.2em' }}>
+            STACKS_QUEST // WKALIDEV // #STACKSBUILDERREWARDS
+          </span>
+          <div className="flex gap-4">
             {[
-              { label: 'TRACKER', href: 'https://base2stacks-tracker.vercel.app' },
-              { label: 'GITHUB',  href: 'https://stacks-quest-ten.vercel.app/' },
-              { label: 'WARPCAST', href: 'https://warpcast.com/willywarrior' },
-            ].map(l => (
-              <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 9, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.2)',
-                  textDecoration: 'none' }}>
-                {l.label}
+              { l: 'GITHUB',   h: 'https://github.com/wkalidev/stacks-quest' },
+              { l: 'WARPCAST', h: 'https://warpcast.com/willywarrior' },
+              { l: 'EXPLORER', h: 'https://explorer.hiro.so/address/SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N?chain=mainnet' },
+            ].map(x => (
+              <a key={x.l} href={x.h} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textDecoration: 'none', letterSpacing: '0.15em' }}>
+                {x.l}
               </a>
             ))}
           </div>
         </div>
       </footer>
+
     </div>
   )
 }
