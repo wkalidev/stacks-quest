@@ -23,11 +23,11 @@
 ;; DATA MAPS
 ;; ---------------------------------------------------------
 
-;; Daily puzzle - one per day-id (block-height / 144)
+;; Daily puzzle - one per day-id (stacks-block-height / 144)
 (define-map puzzles
   { day-id: uint }
   {
-    puzzle-type:  (string-ascii 20), ;; "block-height" | "tx-count" | "stx-price" | "stakers"
+    puzzle-type:  (string-ascii 20), ;; "stacks-block-height" | "tx-count" | "stx-price" | "stakers"
     answer:       uint,              ;; correct answer (set by oracle/owner)
     tolerance:    uint,              ;; accepted margin (e.g. 5% for price)
     reward-pool:  uint,              ;; total $B2S in pool
@@ -81,7 +81,7 @@
 ;; ---------------------------------------------------------
 
 (define-read-only (get-current-day)
-  (/ block-height BLOCKS-PER-DAY))
+  (/ stacks-block-height BLOCKS-PER-DAY))
 
 (define-read-only (get-puzzle (day-id uint))
   (map-get? puzzles { day-id: day-id }))
@@ -142,8 +142,8 @@
         total-bets:   u0,
         winners:      u0,
         revealed:     false,
-        start-block:  block-height,
-        end-block:    (+ block-height BLOCKS-PER-DAY),
+        start-block:  stacks-block-height,
+        end-block:    (+ stacks-block-height BLOCKS-PER-DAY),
       })
     (var-set current-day-id day-id)
     (ok day-id)))
@@ -170,7 +170,7 @@
   )
     ;; Validations
     (asserts! (not (has-played-today player))           ERR-ALREADY-PLAYED)
-    (asserts! (< block-height (get end-block puzzle))   ERR-GAME-CLOSED)
+    (asserts! (< stacks-block-height (get end-block puzzle))   ERR-GAME-CLOSED)
     (asserts! (>= bet MIN-BET)                          ERR-INVALID-BET)
     (asserts! (<= bet MAX-BET)                          ERR-INVALID-BET)
 
@@ -188,7 +188,7 @@
           tries:     u1,
           won:       won,
           claimed:   false,
-          timestamp: block-height,
+          timestamp: stacks-block-height,
         })
 
       ;; Update puzzle stats

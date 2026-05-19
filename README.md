@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stacks Quest 🎮
+
+A daily on-chain puzzle game built on the Stacks blockchain. Players guess real Stacks blockchain data, bet $B2S tokens, and earn rewards.
+
+## How it works
+
+Each day a new puzzle is created with a question about real Stacks blockchain data (block height, tx count, STX price, stakers). Players submit a guess and a $B2S bet. Winners split the reward pool.
+
+- 1 guess per player per day
+- Bet between 1 and 100 $B2S
+- Correct guesses (within tolerance) win a share of the reward pool + their bet back
+- Streak tracking and lifetime stats per player
+
+## Smart Contract
+
+- **Network:** Stacks Mainnet
+- **Contract:** `SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.stacks-quest`
+- **Clarity version:** 3
+- **Epoch:** 3.2
+- **Token:** [$B2S](https://explorer.hiro.so/address/SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4?chain=mainnet)
+
+## Tech Stack
+
+- **Frontend:** Next.js 15, TypeScript, Tailwind CSS
+- **Blockchain:** Stacks, Clarity 3
+- **Wallet:** Leather wallet integration
+- **Tooling:** Clarinet 3.8
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Contract Development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Check contract
+clarinet check
 
-## Learn More
+# Run tests
+npm test
 
-To learn more about Next.js, take a look at the following resources:
+# Deploy to mainnet
+clarinet deployments generate --mainnet --low-cost
+clarinet deployments apply --mainnet
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Create a `.env.local` file:
 
-## Deploy on Vercel
+```env
+NEXT_PUBLIC_CONTRACT_ADDRESS=SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
+NEXT_PUBLIC_CONTRACT_NAME=stacks-quest
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT

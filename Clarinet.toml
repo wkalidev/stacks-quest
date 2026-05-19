@@ -1,18 +1,25 @@
 [project]
-name = "stacks-quest"
-description = "Daily on-chain puzzle game on Stacks"
-authors = ["wkalidev <wkalidev@base2stacks.io>"]
+name = 'stacks-quest'
+description = 'Daily on-chain puzzle game on Stacks'
+authors = ['wkalidev <wkalidev@base2stacks.io>']
 telemetry = false
-cache_dir = "./.cache"
-requirements = [
-  { contract_id = "SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4" }
-]
+cache_dir = '.\.cache'
 
-[repl]
-costs_version = 2
-parser_version = 2
-
+[[project.requirements]]
+contract_id = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4'
 [contracts.stacks-quest]
-path = "contracts/stacks-quest.clar"
-clarity_version = 2
-epoch = 2.5
+path = 'contracts/stacks-quest.clar'
+clarity_version = 3
+epoch = '3.2'
+[repl.analysis]
+passes = []
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
+
+[repl.remote_data]
+enabled = false
+api_url = 'https://api.hiro.so'

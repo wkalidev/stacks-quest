@@ -1,0 +1,18 @@
+---
+id: 0
+name: Mainnet deployment
+network: mainnet
+stacks-node: "https://api.mainnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoin.blockstack.com:8332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: stacks-quest
+            expected-sender: SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
+            cost: 92660
+            path: "contracts\\stacks-quest.clar"
+            anchor-block-only: true
+            clarity-version: 3
+      epoch: "3.2"
