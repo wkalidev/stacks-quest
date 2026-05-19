@@ -43,3 +43,4 @@ settings/Mainnet.toml
 .env
 .env.local
 settings/Mainnet.toml
+.cache/
