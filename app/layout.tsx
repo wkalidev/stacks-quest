@@ -80,6 +80,7 @@ export const metadata: Metadata = {
   },
 
   other: {
+    'talentapp:project_verification': '9939685310adea5849d1b4bacf031ca8f948ad9b7e0fc064a1dc44aa47a252c0369a56991ab715f157c9f49f622c709eb5ed6e06a7ebf76ee7da606d341a3ea8',
     'apple-mobile-web-app-capable':          'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
   },
