@@ -6,8 +6,7 @@ import {
   cvToValue,
   uintCV,
   principalCV,
-  PostConditionMode,
-  Pc,
+  serializeCV,
 } from '@stacks/transactions'
 import { STACKS_MAINNET } from '@stacks/network'
 
@@ -16,9 +15,11 @@ const APP_DETAILS = { name: 'Stacks Quest', icon: 'https://stacks-quest-ten.verc
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const CONTRACT_NAME    = process.env.NEXT_PUBLIC_CONTRACT_NAME    || 'stacks-quest'
-const B2S_CONTRACT     = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
-const B2S_NAME         = 'b2s-token-v4'
-const B2S_ASSET        = 'b2s-token'
+
+const toHex = (cv: any): string => {
+  const bytes = serializeCV(cv)
+  return Buffer.from(bytes).toString('hex')
+}
 
 export function useQuest() {
   const [loading, setLoading] = useState(false)
@@ -39,59 +40,57 @@ export function useQuest() {
     } catch { return null }
   }
 
-  const getTodayPuzzle  = (addr = CONTRACT_ADDRESS) => readOnly('get-today-puzzle',  [], addr)
-  const getPlayerStats  = (addr: string)            => readOnly('get-player-stats',  [principalCV(addr)], addr)
-  const hasPlayedToday  = (addr: string)            => readOnly('has-played-today',  [principalCV(addr)], addr)
-  const getGlobalStats  = ()                        => readOnly('get-global-stats',  [], CONTRACT_ADDRESS)
+  const getTodayPuzzle = (addr = CONTRACT_ADDRESS) =>
+    readOnly('get-today-puzzle', [], addr)
 
-  // Ouvre Leather pour signer la transaction play (guess + bet $B2S)
+  const getPlayerStats = (addr: string) =>
+    readOnly('get-player-stats', [principalCV(addr)], addr)
+
+  const hasPlayedToday = (addr: string) =>
+    readOnly('has-played-today', [principalCV(addr)], addr)
+
+  const getGlobalStats = () =>
+    readOnly('get-global-stats', [], CONTRACT_ADDRESS)
+
+  // Ouvre Leather pour signer la transaction play
   const play = async (guess: number, betAmount: number, playerAddress: string) => {
     setLoading(true); setError(null); setTxId(null)
     const microBet = Math.floor(betAmount * 1_000_000)
     try {
-      const provider = (window as any).LeatherProvider || (window as any).StacksProvider
-      if (!provider) { setError('Wallet not found'); setLoading(false); return }
-
-      const response = await provider.request('stx_callContract', {
+      const { request } = await import('@stacks/connect')
+      const response = await (request as any)('stx_callContract', {
         contract:     `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`,
         functionName: 'play',
         functionArgs: [
-          { type: 'uint', value: String(guess) },
-          { type: 'uint', value: String(microBet) },
+          toHex(uintCV(guess)),
+          toHex(uintCV(microBet)),
         ],
-        network:      'mainnet',
-        appDetails:   APP_DETAILS,
-        postConditions: [{
-          type:      'ft-postcondition',
-          address:   playerAddress,
-          conditionCode: 'sent-equal-to',
-          amount:    String(microBet),
-          asset:     `${B2S_CONTRACT}.${B2S_NAME}::${B2S_ASSET}`,
-        }],
+        network:    'mainnet',
+        appDetails: APP_DETAILS,
       })
-      setTxId(response?.result?.txid || response?.txid)
+      const txid = response?.result?.txid || response?.txid
+      if (txid) setTxId(txid)
     } catch (e: any) {
       setError(e?.message || 'Transaction cancelled')
     } finally { setLoading(false) }
   }
 
-  // Ouvre Leather pour signer claim-reward
+  // Ouvre Leather pour claim-reward
   const claimReward = async (dayId: number) => {
     setLoading(true); setError(null)
     try {
-      const provider = (window as any).LeatherProvider || (window as any).StacksProvider
-      if (!provider) { setError('Wallet not found'); setLoading(false); return }
-
-      const response = await provider.request('stx_callContract', {
+      const { request } = await import('@stacks/connect')
+      const response = await (request as any)('stx_callContract', {
         contract:     `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`,
         functionName: 'claim-reward',
         functionArgs: [
-          { type: 'uint', value: String(dayId) },
+          toHex(uintCV(dayId)),
         ],
         network:    'mainnet',
         appDetails: APP_DETAILS,
       })
-      setTxId(response?.result?.txid || response?.txid)
+      const txid = response?.result?.txid || response?.txid
+      if (txid) setTxId(txid)
     } catch (e: any) {
       setError(e?.message || 'Claim failed')
     } finally { setLoading(false) }
