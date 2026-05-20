@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { openContractCall } from '@stacks/connect'
-import { uintCV }           from '@stacks/transactions'
-import { STACKS_MAINNET }   from '@stacks/network'
+import { uintCV } from '@stacks/transactions'
+import { STACKS_MAINNET } from '@stacks/network'
 
 const CONTRACT_ADDRESS = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const CONTRACT_NAME    = 'stacks-quest-v2'
@@ -77,16 +76,16 @@ export function useWallet(): WalletState {
     try { localStorage.removeItem('sq_address') } catch {}
   }
 
-  // token: 0=STX 1=B2S 2=USDCx 3=sBTC
-  // betAmount: en tokens entiers (ex: 5 B2S) — converti en micro ici
   const submitGuess = async (
-    guess:    number,
+    guess:     number,
     betAmount: number,
-    token:    number,
-    onFinish: (txid: string) => void,
-    onCancel: () => void,
+    token:     number,
+    onFinish:  (txid: string) => void,
+    onCancel:  () => void,
   ) => {
-    const microBet = betAmount * 1_000_000 // 6 decimales
+    // Import dynamique — evite le crash SSR
+    const { openContractCall } = await import('@stacks/connect')
+    const microBet = betAmount * 1_000_000
 
     await openContractCall({
       network:          STACKS_MAINNET,
