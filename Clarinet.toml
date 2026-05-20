@@ -5,12 +5,29 @@ authors = ['wkalidev <wkalidev@base2stacks.io>']
 telemetry = false
 cache_dir = '.\.cache'
 
+# b2s-token-v4 est maintenant local — requirement supprimé
 [[project.requirements]]
-contract_id = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4'
+contract_id = 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx'
+
+[[project.requirements]]
+contract_id = 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token'
+
+# Stub local — epoch 2.5 car le contrat utilise block-height (Clarity 2)
+[contracts.b2s-token-v4]
+path = 'contracts/b2s-token-v4.clar'
+clarity_version = 2
+epoch = '2.5'
+
 [contracts.stacks-quest]
 path = 'contracts/stacks-quest.clar'
 clarity_version = 3
 epoch = '3.2'
+
+[contracts.stacks-quest-v2]
+path = 'contracts/stacks-quest-v2.clar'
+clarity_version = 3
+epoch = '3.2'
+
 [repl.analysis]
 passes = []
 
