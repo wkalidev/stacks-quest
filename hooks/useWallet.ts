@@ -1,11 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { uintCV } from '@stacks/transactions'
-import { STACKS_MAINNET } from '@stacks/network'
-
-const CONTRACT_ADDRESS = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
-const CONTRACT_NAME    = 'stacks-quest-v2'
+import { callPlay } from './useContractCall'
 
 type WalletState = {
   mounted:     boolean
@@ -83,30 +79,7 @@ export function useWallet(): WalletState {
     onFinish:  (txid: string) => void,
     onCancel:  () => void,
   ) => {
-    // Import dynamique — evite le crash SSR
-    const { openContractCall } = await import('@stacks/connect')
-    const microBet = betAmount * 1_000_000
-
-    await openContractCall({
-      network:          STACKS_MAINNET,
-      contractAddress:  CONTRACT_ADDRESS,
-      contractName:     CONTRACT_NAME,
-      functionName:     'play',
-      functionArgs: [
-        uintCV(guess),
-        uintCV(microBet),
-        uintCV(token),
-      ],
-      postConditionMode: 0x01,
-      onFinish: (data) => {
-        console.log('[submitGuess] txid:', data.txId)
-        onFinish(data.txId)
-      },
-      onCancel: () => {
-        console.log('[submitGuess] cancelled')
-        onCancel()
-      },
-    })
+    await callPlay(guess, betAmount, token, onFinish, onCancel)
   }
 
   return { mounted, isConnected, address, connect, disconnect, submitGuess }
