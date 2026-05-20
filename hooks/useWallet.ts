@@ -1,13 +1,26 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { openContractCall } from '@stacks/connect'
+import { uintCV }           from '@stacks/transactions'
+import { STACKS_MAINNET }   from '@stacks/network'
+
+const CONTRACT_ADDRESS = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
+const CONTRACT_NAME    = 'stacks-quest-v2'
 
 type WalletState = {
-  mounted: boolean
+  mounted:     boolean
   isConnected: boolean
-  address: string | null
-  connect: () => Promise<void>
-  disconnect: () => void
+  address:     string | null
+  connect:     () => Promise<void>
+  disconnect:  () => void
+  submitGuess: (
+    guess:     number,
+    betAmount: number,
+    token:     number,
+    onFinish:  (txid: string) => void,
+    onCancel:  () => void,
+  ) => Promise<void>
 }
 
 export function useWallet(): WalletState {
@@ -24,7 +37,6 @@ export function useWallet(): WalletState {
   }, [])
 
   const connect = async () => {
-    // Try Leather first (LeatherProvider), then StacksProvider
     const provider =
       (window as any).LeatherProvider ||
       (window as any).StacksProvider
@@ -37,13 +49,11 @@ export function useWallet(): WalletState {
     try {
       let addr: string | null = null
 
-      // Leather new API
       if ((window as any).LeatherProvider) {
         const res = await (window as any).LeatherProvider.request('getAddresses')
         addr = res?.result?.addresses?.find((a: any) => a.symbol === 'STX')?.address
       }
 
-      // Fallback: StacksProvider
       if (!addr) {
         const res = await provider.request('getAddresses', null)
         addr =
@@ -67,5 +77,38 @@ export function useWallet(): WalletState {
     try { localStorage.removeItem('sq_address') } catch {}
   }
 
-  return { mounted, isConnected, address, connect, disconnect }
+  // token: 0=STX 1=B2S 2=USDCx 3=sBTC
+  // betAmount: en tokens entiers (ex: 5 B2S) — converti en micro ici
+  const submitGuess = async (
+    guess:    number,
+    betAmount: number,
+    token:    number,
+    onFinish: (txid: string) => void,
+    onCancel: () => void,
+  ) => {
+    const microBet = betAmount * 1_000_000 // 6 decimales
+
+    await openContractCall({
+      network:          STACKS_MAINNET,
+      contractAddress:  CONTRACT_ADDRESS,
+      contractName:     CONTRACT_NAME,
+      functionName:     'play',
+      functionArgs: [
+        uintCV(guess),
+        uintCV(microBet),
+        uintCV(token),
+      ],
+      postConditionMode: 0x01,
+      onFinish: (data) => {
+        console.log('[submitGuess] txid:', data.txId)
+        onFinish(data.txId)
+      },
+      onCancel: () => {
+        console.log('[submitGuess] cancelled')
+        onCancel()
+      },
+    })
+  }
+
+  return { mounted, isConnected, address, connect, disconnect, submitGuess }
 }

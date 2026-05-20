@@ -6,13 +6,13 @@ import { useWallet } from '../hooks/useWallet'
 const MONO = { fontFamily: "'JetBrains Mono','Fira Code','Courier New',monospace" }
 
 const PUZZLES = [
-  { id: 'block-height', label: 'BLOCK_HEIGHT',   hint: 'What is the current Stacks block height?',     unit: 'blocks',  tip: 'explorer.hiro.so' },
-  { id: 'stakers',      label: 'TOTAL_STAKERS',  hint: 'How many wallets are staking $B2S right now?',  unit: 'wallets', tip: 'stacking vault on-chain' },
-  { id: 'tx-count',     label: 'TX_COUNT_24H',   hint: 'How many Stacks transactions in the last 24h?', unit: 'txs',     tip: 'api.mainnet.hiro.so' },
-  { id: 'stx-price',    label: 'STX_PRICE_CENTS', hint: 'What is the STX price in cents right now?',   unit: 'cents',   tip: 'CoinGecko / Binance' },
+  { id: 'block-height', label: 'BLOCK_HEIGHT',    hint: 'What is the current Stacks block height?',     unit: 'blocks',  tip: 'explorer.hiro.so' },
+  { id: 'stakers',      label: 'TOTAL_STAKERS',   hint: 'How many wallets are staking $B2S right now?',  unit: 'wallets', tip: 'stacking vault on-chain' },
+  { id: 'tx-count',     label: 'TX_COUNT_24H',    hint: 'How many Stacks transactions in the last 24h?', unit: 'txs',     tip: 'api.mainnet.hiro.so' },
+  { id: 'stx-price',    label: 'STX_PRICE_CENTS', hint: 'What is the STX price in cents right now?',    unit: 'cents',   tip: 'CoinGecko / Binance' },
 ]
 
-type State = 'idle' | 'playing' | 'won' | 'lost'
+type State = 'idle' | 'playing' | 'submitting' | 'won' | 'lost'
 type Hint  = 'hot' | 'warm' | 'cold' | null
 
 function Logo() {
@@ -28,25 +28,26 @@ function Logo() {
 }
 
 export default function Page() {
-  const { mounted, isConnected, address, connect, disconnect } = useWallet()
+  const { mounted, isConnected, address, connect, disconnect, submitGuess } = useWallet()
 
-  const [guess,     setGuess]     = useState('')
-  const [bet,       setBet]       = useState('5')
-  const [state,     setState]     = useState<State>('idle')
-  const [tries,     setTries]     = useState(0)
-  const [hint,      setHint]      = useState<Hint>(null)
-  const [showTip,   setShowTip]   = useState(false)
-  const [dayId,     setDayId]     = useState(0)
-  const [block,     setBlock]     = useState(0)
-  const [pidx,      setPidx]      = useState(0)
-  const [streak,    setStreak]    = useState(0)
+  const [guess,   setGuess]   = useState('')
+  const [bet,     setBet]     = useState('5')
+  const [state,   setState]   = useState<State>('idle')
+  const [tries,   setTries]   = useState(0)
+  const [hint,    setHint]    = useState<Hint>(null)
+  const [showTip, setShowTip] = useState(false)
+  const [dayId,   setDayId]   = useState(0)
+  const [block,   setBlock]   = useState(0)
+  const [pidx,    setPidx]    = useState(0)
+  const [streak,  setStreak]  = useState(0)
+  const [txid,    setTxid]    = useState<string | null>(null)
 
   const puzzle = PUZZLES[pidx]
   const short  = (a: string) => `${a.slice(0,6)}...${a.slice(-4)}`
 
   const fetchBlock = useCallback(async () => {
     try {
-      const d = await fetch('https://api.mainnet.hiro.so/v2/info').then(r => r.json())
+      const d  = await fetch('https://api.mainnet.hiro.so/v2/info').then(r => r.json())
       const bh = d.stacks_tip_height
       setBlock(bh)
       const day = Math.floor(bh / 144)
@@ -57,24 +58,35 @@ export default function Page() {
 
   useEffect(() => { fetchBlock() }, [fetchBlock])
 
-  const handleGuess = () => {
+  const handleGuess = async () => {
     if (!guess || parseFloat(guess.replace(',', '.')) <= 0) return
-    const t = tries + 1
-    setTries(t)
-    const r = Math.random()
-    if (r < 0.15) {
-      setState('won')
-      setStreak(s => s + 1)
-      setHint(null)
-    } else if (t >= 3) {
-      setState('lost')
-      setStreak(0)
-      setHint(null)
-    } else {
-      setHint(r < 0.4 ? 'hot' : r < 0.65 ? 'warm' : 'cold')
-      setState('playing')
+    if (!isConnected) { connect(); return }
+
+    setState('submitting')
+
+    try {
+      await submitGuess(
+        Math.round(parseFloat(guess)), // guess uint
+        parseInt(bet),                 // bet en tokens entiers
+        1,                             // TOKEN-B2S
+        (txid) => {
+          // Wallet a signe — transaction broadcastee
+          setTxid(txid)
+          setTries(t => t + 1)
+          setGuess('')
+          // On passe en 'playing' — l'UI affiche "en attente de confirmation"
+          // Le vrai won/lost sera determine par le contrat on-chain
+          setState('playing')
+        },
+        () => {
+          // Utilisateur a annule dans le wallet
+          setState(tries === 0 ? 'idle' : 'playing')
+        },
+      )
+    } catch (e: any) {
+      console.error('[handleGuess]', e?.message || e)
+      setState(tries === 0 ? 'idle' : 'playing')
     }
-    setGuess('')
   }
 
   if (!mounted) return null
@@ -82,7 +94,7 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-black flex flex-col" style={MONO}>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px' }}>
         <div className="flex items-center justify-between">
 
@@ -99,7 +111,6 @@ export default function Page() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Block */}
             <div className="hidden sm:flex items-center gap-2">
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.35)', display: 'inline-block', animation: 'pulse 2s infinite' }}/>
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em' }}>
@@ -107,14 +118,12 @@ export default function Page() {
               </span>
             </div>
 
-            {/* Streak */}
             {streak > 0 && (
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.15em' }}>
-                🔥 STREAK_{streak}
+                STREAK_{streak}
               </span>
             )}
 
-            {/* Wallet button */}
             <button
               onClick={isConnected ? disconnect : connect}
               style={{
@@ -124,18 +133,16 @@ export default function Page() {
                 background: isConnected ? 'rgba(255,68,68,0.08)' : 'rgba(255,255,255,0.06)',
                 border:     isConnected ? '1px solid rgba(255,68,68,0.25)' : '1px solid rgba(255,255,255,0.12)',
                 color:      isConnected ? '#ff6666' : 'rgba(255,255,255,0.55)',
-              }}
-            >
+              }}>
               {isConnected ? `◼ ${short(address!)}` : '▶ CONNECT_WALLET'}
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── MAIN ── */}
+      {/* MAIN */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
 
-        {/* Day badge */}
         <div className="mb-6">
           <div style={{
             fontSize: 10, letterSpacing: '0.25em', color: 'rgba(255,255,255,0.2)',
@@ -152,7 +159,6 @@ export default function Page() {
           padding: 28, background: 'rgba(255,255,255,0.015)',
         }}>
 
-          {/* Card header */}
           <div className="flex justify-between mb-5">
             <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
               {puzzle.label}
@@ -165,12 +171,10 @@ export default function Page() {
             </span>
           </div>
 
-          {/* Question */}
           <p style={{ fontSize: 17, color: 'white', lineHeight: 1.6, marginBottom: 8 }}>
             {puzzle.hint}
           </p>
 
-          {/* Tip toggle */}
           <button
             onClick={() => setShowTip(v => !v)}
             style={{ fontSize: 9, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.15em',
@@ -183,11 +187,11 @@ export default function Page() {
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em',
               background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 6,
               marginBottom: 16 }}>
-              💡 Check: {puzzle.tip}
+              Check: {puzzle.tip}
             </div>
           )}
 
-          {/* Feedback */}
+          {/* Feedback hint */}
           {hint && state === 'playing' && (
             <div style={{
               marginBottom: 14, padding: '10px', borderRadius: 8, textAlign: 'center',
@@ -196,8 +200,23 @@ export default function Page() {
             }}>
               <span style={{ fontSize: 11, letterSpacing: '0.2em',
                 color: hint === 'hot' ? '#ff6666' : hint === 'warm' ? '#ffaa00' : '#4499ff' }}>
-                {hint === 'hot' ? '🔥 HOT — TRY AGAIN' : hint === 'warm' ? '🌡 GETTING WARMER' : '🧊 COLD — TRY AGAIN'}
+                {hint === 'hot' ? 'HOT — TRY AGAIN' : hint === 'warm' ? 'GETTING WARMER' : 'COLD — TRY AGAIN'}
               </span>
+            </div>
+          )}
+
+          {/* Transaction broadcasted */}
+          {txid && state === 'playing' && (
+            <div style={{ marginBottom: 14, padding: '10px', borderRadius: 8,
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', margin: 0 }}>
+                TX_BROADCASTED —{' '}
+                <a href={`https://explorer.hiro.so/txid/${txid}?chain=mainnet`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>
+                  VIEW_ON_EXPLORER
+                </a>
+              </p>
             </div>
           )}
 
@@ -211,19 +230,19 @@ export default function Page() {
                 +{bet} $B2S + POOL_SHARE EARNED
               </p>
               <div className="flex justify-center gap-2 flex-wrap">
-                <a href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`🎯 Day #${dayId} Stacks Quest solved!\n${puzzle.label} — streak: ${streak} 🔥\n\nstacks-quest.vercel.app\n#StacksQuest #B2S`)}`}
+                <a href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`Day #${dayId} Stacks Quest solved!\n${puzzle.label} streak: ${streak}\n\nstacks-quest.vercel.app\n#StacksQuest #B2S`)}`}
                   target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.15em',
                     background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
                     color: '#a78bfa', textDecoration: 'none', fontFamily: 'inherit' }}>
-                  🟣 WARPCAST
+                  WARPCAST
                 </a>
-                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`🎯 Day #${dayId} Stacks Quest solved! Streak: ${streak} 🔥\n\nstacks-quest.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
+                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Day #${dayId} Stacks Quest solved! Streak: ${streak}\n\nstacks-quest.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
                   target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.15em',
                     background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                     color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'inherit' }}>
-                  𝕏 TWITTER
+                  TWITTER
                 </a>
               </div>
             </div>
@@ -243,19 +262,26 @@ export default function Page() {
           {/* NOT CONNECTED */}
           {!isConnected && (state === 'idle' || state === 'playing') && (
             <div>
-              <button
-                onClick={connect}
-                style={{
-                  width: '100%', padding: 14, borderRadius: 10,
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.3em',
-                  fontFamily: 'inherit', cursor: 'pointer',
-                  background: 'white', border: 'none', color: 'black',
-                }}>
-                ▶ CONNECT_WALLET_TO_PLAY
+              <button onClick={connect} style={{
+                width: '100%', padding: 14, borderRadius: 10,
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.3em',
+                fontFamily: 'inherit', cursor: 'pointer',
+                background: 'white', border: 'none', color: 'black',
+              }}>
+                CONNECT_WALLET_TO_PLAY
               </button>
               <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center',
                 letterSpacing: '0.15em', marginTop: 8 }}>
                 LEATHER OR XVERSE
+              </p>
+            </div>
+          )}
+
+          {/* SUBMITTING */}
+          {state === 'submitting' && (
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.25em', margin: 0 }}>
+                WAITING_FOR_WALLET...
               </p>
             </div>
           )}
@@ -315,17 +341,17 @@ export default function Page() {
             </div>
           )}
 
-          {/* DONE — both won/lost */}
+          {/* DONE */}
           {(state === 'won' || state === 'lost') && (
             <button
-              onClick={() => { setState('idle'); setTries(0); setGuess(''); setHint(null) }}
+              onClick={() => { setState('idle'); setTries(0); setGuess(''); setHint(null); setTxid(null) }}
               style={{
                 width: '100%', padding: 12, borderRadius: 10, marginTop: 8,
                 fontSize: 10, fontWeight: 700, letterSpacing: '0.25em', fontFamily: 'inherit',
                 cursor: 'pointer', background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)',
               }}>
-              ← BACK
+              BACK
             </button>
           )}
         </div>
@@ -350,7 +376,7 @@ export default function Page() {
           <a href="https://base2stacks-tracker.vercel.app" target="_blank" rel="noopener noreferrer"
             style={{ fontSize: 9, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.2)', textDecoration: 'none',
               border: '1px solid rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: 6 }}>
-            ← BASE2STACKS_TRACKER
+            BASE2STACKS_TRACKER
           </a>
         </div>
       </main>
