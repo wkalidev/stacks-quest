@@ -9,23 +9,9 @@ plan:
     - id: 0
       transactions:
         - contract-publish:
-            contract-name: b2s-token-v4
-            expected-sender: SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
-            cost: 10000
-            path: "contracts\\b2s-token-v4.clar"
-            anchor-block-only: true
-            clarity-version: 2
-        - contract-publish:
-            contract-name: stacks-quest
-            expected-sender: SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
-            cost: 92660
-            path: "contracts\\stacks-quest.clar"
-            anchor-block-only: true
-            clarity-version: 3
-        - contract-publish:
             contract-name: stacks-quest-v2
             expected-sender: SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
-            cost: 92660
+            cost: 1978951
             path: "contracts\\stacks-quest-v2.clar"
             anchor-block-only: true
             clarity-version: 3

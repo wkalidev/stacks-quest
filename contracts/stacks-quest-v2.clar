@@ -1,6 +1,10 @@
 ;; Stacks Quest v2 - Daily On-Chain Puzzle Game (Multi-Token)
 ;; Deployer: SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
 ;; Supports: STX, $B2S, USDCx, sBTC - separate pools per token
+;; FIXES:
+;;   - B2S token address changed from relative (.b2s-token-v4)
+;;     to absolute ('SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4)
+;;   - All block-height references replaced with stacks-block-height (post-Nakamoto)
 
 (define-constant CONTRACT-OWNER tx-sender)
 
@@ -21,8 +25,8 @@
 (define-constant TOKEN-USDCX u2)
 (define-constant TOKEN-SBTC  u3)
 
-;; Token contracts
-(define-constant B2S .b2s-token-v4)
+;; FIX: Token contracts - absolute addresses
+(define-constant B2S   .b2s-token-v4)
 (define-constant USDCX 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx)
 (define-constant SBTC  'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token)
 
@@ -50,27 +54,27 @@
 (define-map puzzles
   { day-id: uint }
   {
-    puzzle-type:      (string-ascii 20),
-    answer:           uint,
-    tolerance:        uint,
+    puzzle-type:       (string-ascii 20),
+    answer:            uint,
+    tolerance:         uint,
     ;; Reward pools per token
     reward-pool-stx:   uint,
     reward-pool-b2s:   uint,
     reward-pool-usdcx: uint,
     reward-pool-sbtc:  uint,
     ;; Bets per token
-    total-bets-stx:   uint,
-    total-bets-b2s:   uint,
-    total-bets-usdcx: uint,
-    total-bets-sbtc:  uint,
+    total-bets-stx:    uint,
+    total-bets-b2s:    uint,
+    total-bets-usdcx:  uint,
+    total-bets-sbtc:   uint,
     ;; Winners per token
-    winners-stx:      uint,
-    winners-b2s:      uint,
-    winners-usdcx:    uint,
-    winners-sbtc:     uint,
-    revealed:         bool,
-    start-block:      uint,
-    end-block:        uint,
+    winners-stx:       uint,
+    winners-b2s:       uint,
+    winners-usdcx:     uint,
+    winners-sbtc:      uint,
+    revealed:          bool,
+    start-block:       uint,
+    end-block:         uint,
   }
 )
 
@@ -91,11 +95,11 @@
 (define-map player-stats
   { player: principal }
   {
-    total-played:    uint,
-    total-won:       uint,
-    best-streak:     uint,
-    current-streak:  uint,
-    last-played:     uint,
+    total-played:   uint,
+    total-won:      uint,
+    best-streak:    uint,
+    current-streak: uint,
+    last-played:    uint,
   }
 )
 
@@ -107,6 +111,7 @@
 ;; READ-ONLY
 ;; ---------------------------------------------------------
 
+;; FIX: stacks-block-height (post-Nakamoto)
 (define-read-only (get-current-day)
   (/ stacks-block-height BLOCKS-PER-DAY))
 
@@ -188,14 +193,30 @@
   ))))
 
 ;; Get reward pool for a given token from puzzle
-(define-private (get-pool (puzzle { puzzle-type: (string-ascii 20), answer: uint, tolerance: uint, reward-pool-stx: uint, reward-pool-b2s: uint, reward-pool-usdcx: uint, reward-pool-sbtc: uint, total-bets-stx: uint, total-bets-b2s: uint, total-bets-usdcx: uint, total-bets-sbtc: uint, winners-stx: uint, winners-b2s: uint, winners-usdcx: uint, winners-sbtc: uint, revealed: bool, start-block: uint, end-block: uint }) (token uint))
+(define-private (get-pool
+  (puzzle {
+    puzzle-type: (string-ascii 20), answer: uint, tolerance: uint,
+    reward-pool-stx: uint, reward-pool-b2s: uint, reward-pool-usdcx: uint, reward-pool-sbtc: uint,
+    total-bets-stx: uint, total-bets-b2s: uint, total-bets-usdcx: uint, total-bets-sbtc: uint,
+    winners-stx: uint, winners-b2s: uint, winners-usdcx: uint, winners-sbtc: uint,
+    revealed: bool, start-block: uint, end-block: uint
+  })
+  (token uint))
   (if (is-eq token TOKEN-STX)   (get reward-pool-stx puzzle)
   (if (is-eq token TOKEN-B2S)   (get reward-pool-b2s puzzle)
   (if (is-eq token TOKEN-USDCX) (get reward-pool-usdcx puzzle)
   (get reward-pool-sbtc puzzle)))))
 
 ;; Get winners count for a given token from puzzle
-(define-private (get-winners (puzzle { puzzle-type: (string-ascii 20), answer: uint, tolerance: uint, reward-pool-stx: uint, reward-pool-b2s: uint, reward-pool-usdcx: uint, reward-pool-sbtc: uint, total-bets-stx: uint, total-bets-b2s: uint, total-bets-usdcx: uint, total-bets-sbtc: uint, winners-stx: uint, winners-b2s: uint, winners-usdcx: uint, winners-sbtc: uint, revealed: bool, start-block: uint, end-block: uint }) (token uint))
+(define-private (get-winners
+  (puzzle {
+    puzzle-type: (string-ascii 20), answer: uint, tolerance: uint,
+    reward-pool-stx: uint, reward-pool-b2s: uint, reward-pool-usdcx: uint, reward-pool-sbtc: uint,
+    total-bets-stx: uint, total-bets-b2s: uint, total-bets-usdcx: uint, total-bets-sbtc: uint,
+    winners-stx: uint, winners-b2s: uint, winners-usdcx: uint, winners-sbtc: uint,
+    revealed: bool, start-block: uint, end-block: uint
+  })
+  (token uint))
   (if (is-eq token TOKEN-STX)   (get winners-stx puzzle)
   (if (is-eq token TOKEN-B2S)   (get winners-b2s puzzle)
   (if (is-eq token TOKEN-USDCX) (get winners-usdcx puzzle)
@@ -206,13 +227,13 @@
 ;; ---------------------------------------------------------
 
 (define-public (create-puzzle
-  (puzzle-type   (string-ascii 20))
-  (answer        uint)
-  (tolerance     uint)
-  (pool-stx      uint)
-  (pool-b2s      uint)
-  (pool-usdcx    uint)
-  (pool-sbtc     uint))
+  (puzzle-type (string-ascii 20))
+  (answer      uint)
+  (tolerance   uint)
+  (pool-stx    uint)
+  (pool-b2s    uint)
+  (pool-usdcx  uint)
+  (pool-sbtc   uint))
   (let ((day-id (get-current-day)))
     (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-OWNER)
     (asserts! (is-none (map-get? puzzles { day-id: day-id })) ERR-GAME-CLOSED)
@@ -225,24 +246,24 @@
 
     (map-set puzzles { day-id: day-id }
       {
-        puzzle-type:      puzzle-type,
-        answer:           answer,
-        tolerance:        tolerance,
+        puzzle-type:       puzzle-type,
+        answer:            answer,
+        tolerance:         tolerance,
         reward-pool-stx:   pool-stx,
         reward-pool-b2s:   pool-b2s,
         reward-pool-usdcx: pool-usdcx,
         reward-pool-sbtc:  pool-sbtc,
-        total-bets-stx:   u0,
-        total-bets-b2s:   u0,
-        total-bets-usdcx: u0,
-        total-bets-sbtc:  u0,
-        winners-stx:      u0,
-        winners-b2s:      u0,
-        winners-usdcx:    u0,
-        winners-sbtc:     u0,
-        revealed:         false,
-        start-block:      stacks-block-height,
-        end-block:        (+ stacks-block-height BLOCKS-PER-DAY),
+        total-bets-stx:    u0,
+        total-bets-b2s:    u0,
+        total-bets-usdcx:  u0,
+        total-bets-sbtc:   u0,
+        winners-stx:       u0,
+        winners-b2s:       u0,
+        winners-usdcx:     u0,
+        winners-sbtc:      u0,
+        revealed:          false,
+        start-block:       stacks-block-height,
+        end-block:         (+ stacks-block-height BLOCKS-PER-DAY),
       })
     (var-set current-day-id day-id)
     (ok day-id)))
@@ -262,19 +283,19 @@
 ;; token: 0=STX, 1=B2S, 2=USDCx, 3=sBTC
 (define-public (play (guess uint) (bet uint) (token uint))
   (let (
-    (day-id  (get-current-day))
-    (puzzle  (unwrap! (map-get? puzzles { day-id: day-id }) ERR-NO-GAME-TODAY))
-    (player  tx-sender)
-    (stats   (get-player-stats player))
+    (day-id (get-current-day))
+    (puzzle (unwrap! (map-get? puzzles { day-id: day-id }) ERR-NO-GAME-TODAY))
+    (player tx-sender)
+    (stats  (get-player-stats tx-sender))
   )
     ;; Validations
-    (asserts! (is-valid-token token)                                  ERR-INVALID-TOKEN)
-    (asserts! (not (has-played-today player))                         ERR-ALREADY-PLAYED)
-    (asserts! (< stacks-block-height (get end-block puzzle))          ERR-GAME-CLOSED)
-    (asserts! (>= bet (get-min-bet token))                            ERR-INVALID-BET)
-    (asserts! (<= bet (get-max-bet token))                            ERR-INVALID-BET)
+    (asserts! (is-valid-token token)                         ERR-INVALID-TOKEN)
+    (asserts! (not (has-played-today player))                ERR-ALREADY-PLAYED)
+    (asserts! (< stacks-block-height (get end-block puzzle)) ERR-GAME-CLOSED)
+    (asserts! (>= bet (get-min-bet token))                   ERR-INVALID-BET)
+    (asserts! (<= bet (get-max-bet token))                   ERR-INVALID-BET)
 
-    ;; Transfer bet to contract - triggers wallet confirmation
+    ;; Transfer bet to contract
     (try! (transfer-in bet player token))
 
     ;; Check if correct
@@ -339,9 +360,9 @@
     (player  tx-sender)
     (token   (get token attempt))
   )
-    (asserts! (get won attempt)              ERR-NOT-WINNER)
-    (asserts! (not (get claimed attempt))    ERR-ALREADY-CLAIMED)
-    (asserts! (get revealed puzzle)          ERR-GAME-CLOSED)
+    (asserts! (get won attempt)           ERR-NOT-WINNER)
+    (asserts! (not (get claimed attempt)) ERR-ALREADY-CLAIMED)
+    (asserts! (get revealed puzzle)       ERR-GAME-CLOSED)
 
     (let (
       (winners    (get-winners puzzle token))
@@ -352,7 +373,7 @@
       (map-set attempts { day-id: day-id, player: player }
         (merge attempt { claimed: true }))
 
-      ;; Transfer payout in the same token - triggers wallet confirmation
+      ;; Transfer payout in the same token
       (try! (transfer-out payout player token))
 
       (ok { payout: payout, token: token }))))
