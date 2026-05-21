@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect, useCallback } from 'react'
 import { useWallet } from '../hooks/useWallet'
 
@@ -61,32 +63,14 @@ export default function Page() {
   const handleGuess = async () => {
     if (!guess || parseFloat(guess.replace(',', '.')) <= 0) return
     if (!isConnected) { connect(); return }
-
     setState('submitting')
-
-    try {
-      await submitGuess(
-        Math.round(parseFloat(guess)), // guess uint
-        parseInt(bet),                 // bet en tokens entiers
-        1,                             // TOKEN-B2S
-        (txid) => {
-          // Wallet a signe — transaction broadcastee
-          setTxid(txid)
-          setTries(t => t + 1)
-          setGuess('')
-          // On passe en 'playing' — l'UI affiche "en attente de confirmation"
-          // Le vrai won/lost sera determine par le contrat on-chain
-          setState('playing')
-        },
-        () => {
-          // Utilisateur a annule dans le wallet
-          setState(tries === 0 ? 'idle' : 'playing')
-        },
-      )
-    } catch (e: any) {
-      console.error('[handleGuess]', e?.message || e)
-      setState(tries === 0 ? 'idle' : 'playing')
-    }
+    await submitGuess(
+      Math.round(parseFloat(guess.replace(',', '.'))),
+      parseInt(bet),
+      1,
+      (id) => { setTxid(id); setTries(t => t + 1); setGuess(''); setState('playing') },
+      ()  => { setState(tries === 0 ? 'idle' : 'playing') },
+    )
   }
 
   if (!mounted) return null
@@ -94,42 +78,34 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-black flex flex-col" style={MONO}>
 
-      {/* HEADER */}
       <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px' }}>
         <div className="flex items-center justify-between">
-
           <div className="flex items-center gap-3">
             <Logo />
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'white', letterSpacing: '-0.5px' }}>
                 STACKS<span style={{ opacity: 0.3 }}>_</span>QUEST
               </div>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
-                MAINNET
-              </div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>MAINNET</div>
             </div>
           </div>
-
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2">
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.35)', display: 'inline-block', animation: 'pulse 2s infinite' }}/>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.35)', display: 'inline-block' }}/>
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em' }}>
                 BLOCK_{block || '...'}
               </span>
             </div>
-
             {streak > 0 && (
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.15em' }}>
                 STREAK_{streak}
               </span>
             )}
-
             <button
               onClick={isConnected ? disconnect : connect}
               style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: '0.2em',
-                padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
-                fontFamily: 'inherit',
+                padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
                 background: isConnected ? 'rgba(255,68,68,0.08)' : 'rgba(255,255,255,0.06)',
                 border:     isConnected ? '1px solid rgba(255,68,68,0.25)' : '1px solid rgba(255,255,255,0.12)',
                 color:      isConnected ? '#ff6666' : 'rgba(255,255,255,0.55)',
@@ -140,7 +116,6 @@ export default function Page() {
         </div>
       </header>
 
-      {/* MAIN */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
 
         <div className="mb-6">
@@ -152,60 +127,45 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Game card */}
         <div style={{
           width: '100%', maxWidth: 480,
           border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16,
           padding: 28, background: 'rgba(255,255,255,0.015)',
         }}>
-
           <div className="flex justify-between mb-5">
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
-              {puzzle.label}
-            </span>
-            <span style={{
-              fontSize: 9, letterSpacing: '0.2em',
-              color: tries === 0 ? 'rgba(255,255,255,0.2)' : tries === 1 ? '#ffd700' : '#ff6666',
-            }}>
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>{puzzle.label}</span>
+            <span style={{ fontSize: 9, letterSpacing: '0.2em', color: tries === 0 ? 'rgba(255,255,255,0.2)' : tries === 1 ? '#ffd700' : '#ff6666' }}>
               TRIES_{tries}/3
             </span>
           </div>
 
-          <p style={{ fontSize: 17, color: 'white', lineHeight: 1.6, marginBottom: 8 }}>
-            {puzzle.hint}
-          </p>
+          <p style={{ fontSize: 17, color: 'white', lineHeight: 1.6, marginBottom: 8 }}>{puzzle.hint}</p>
 
-          <button
-            onClick={() => setShowTip(v => !v)}
+          <button onClick={() => setShowTip(v => !v)}
             style={{ fontSize: 9, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.15em',
-              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              marginBottom: 20, padding: 0 }}>
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20, padding: 0 }}>
             {showTip ? '▼ HIDE_TIP' : '▶ SHOW_TIP'}
           </button>
 
           {showTip && (
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em',
-              background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 6,
-              marginBottom: 16 }}>
+              background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 6, marginBottom: 16 }}>
               Check: {puzzle.tip}
             </div>
           )}
 
-          {/* Feedback hint */}
           {hint && state === 'playing' && (
             <div style={{
               marginBottom: 14, padding: '10px', borderRadius: 8, textAlign: 'center',
               background: hint === 'hot' ? 'rgba(255,68,68,0.07)' : hint === 'warm' ? 'rgba(255,165,0,0.07)' : 'rgba(0,150,255,0.07)',
               border: `1px solid ${hint === 'hot' ? 'rgba(255,68,68,0.2)' : hint === 'warm' ? 'rgba(255,165,0,0.2)' : 'rgba(0,150,255,0.2)'}`,
             }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.2em',
-                color: hint === 'hot' ? '#ff6666' : hint === 'warm' ? '#ffaa00' : '#4499ff' }}>
+              <span style={{ fontSize: 11, letterSpacing: '0.2em', color: hint === 'hot' ? '#ff6666' : hint === 'warm' ? '#ffaa00' : '#4499ff' }}>
                 {hint === 'hot' ? 'HOT — TRY AGAIN' : hint === 'warm' ? 'GETTING WARMER' : 'COLD — TRY AGAIN'}
               </span>
             </div>
           )}
 
-          {/* Transaction broadcasted */}
           {txid && state === 'playing' && (
             <div style={{ marginBottom: 14, padding: '10px', borderRadius: 8,
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -220,7 +180,6 @@ export default function Page() {
             </div>
           )}
 
-          {/* WON */}
           {state === 'won' && (
             <div style={{ marginBottom: 14, padding: '24px', borderRadius: 10, textAlign: 'center',
               background: 'rgba(0,255,100,0.04)', border: '1px solid rgba(0,255,100,0.15)' }}>
@@ -248,7 +207,6 @@ export default function Page() {
             </div>
           )}
 
-          {/* LOST */}
           {state === 'lost' && (
             <div style={{ marginBottom: 14, padding: '20px', borderRadius: 10, textAlign: 'center',
               background: 'rgba(255,68,68,0.04)', border: '1px solid rgba(255,68,68,0.15)' }}>
@@ -259,25 +217,21 @@ export default function Page() {
             </div>
           )}
 
-          {/* NOT CONNECTED */}
           {!isConnected && (state === 'idle' || state === 'playing') && (
             <div>
               <button onClick={connect} style={{
                 width: '100%', padding: 14, borderRadius: 10,
                 fontSize: 11, fontWeight: 700, letterSpacing: '0.3em',
-                fontFamily: 'inherit', cursor: 'pointer',
-                background: 'white', border: 'none', color: 'black',
+                fontFamily: 'inherit', cursor: 'pointer', background: 'white', border: 'none', color: 'black',
               }}>
                 CONNECT_WALLET_TO_PLAY
               </button>
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center',
-                letterSpacing: '0.15em', marginTop: 8 }}>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center', letterSpacing: '0.15em', marginTop: 8 }}>
                 LEATHER OR XVERSE
               </p>
             </div>
           )}
 
-          {/* SUBMITTING */}
           {state === 'submitting' && (
             <div style={{ padding: '20px', textAlign: 'center' }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.25em', margin: 0 }}>
@@ -286,7 +240,6 @@ export default function Page() {
             </div>
           )}
 
-          {/* GAME INPUT */}
           {isConnected && (state === 'idle' || state === 'playing') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
@@ -305,27 +258,22 @@ export default function Page() {
                   }}
                 />
               </div>
-
               <div>
                 <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.3em', marginBottom: 6 }}>
                   BET_AMOUNT ($B2S)
                 </p>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {['1', '5', '10', '25'].map(v => (
-                    <button key={v} onClick={() => setBet(v)}
-                      style={{
-                        flex: 1, padding: '9px 0', borderRadius: 6, fontSize: 12,
-                        fontFamily: 'inherit', letterSpacing: '0.1em', cursor: 'pointer',
-                        background: bet === v ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
-                        border:     bet === v ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.06)',
-                        color:      bet === v ? 'white' : 'rgba(255,255,255,0.3)',
-                      }}>
-                      {v}
-                    </button>
+                    <button key={v} onClick={() => setBet(v)} style={{
+                      flex: 1, padding: '9px 0', borderRadius: 6, fontSize: 12,
+                      fontFamily: 'inherit', letterSpacing: '0.1em', cursor: 'pointer',
+                      background: bet === v ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
+                      border:     bet === v ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                      color:      bet === v ? 'white' : 'rgba(255,255,255,0.3)',
+                    }}>{v}</button>
                   ))}
                 </div>
               </div>
-
               <button
                 onClick={handleGuess}
                 disabled={!guess || parseFloat(guess.replace(',', '.')) <= 0}
@@ -341,7 +289,6 @@ export default function Page() {
             </div>
           )}
 
-          {/* DONE */}
           {(state === 'won' || state === 'lost') && (
             <button
               onClick={() => { setState('idle'); setTries(0); setGuess(''); setHint(null); setTxid(null) }}
@@ -356,7 +303,6 @@ export default function Page() {
           )}
         </div>
 
-        {/* How it works */}
         <div style={{ marginTop: 40, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, maxWidth: 480, width: '100%' }}>
           {[
             { n: '01', t: 'GUESS', d: 'Predict real Stacks on-chain data. 3 tries per day.' },
@@ -381,7 +327,6 @@ export default function Page() {
         </div>
       </main>
 
-      {/* FOOTER */}
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px 20px' }}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.2em' }}>

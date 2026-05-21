@@ -10,47 +10,60 @@ export async function callPlay(
   onFinish:  (txid: string) => void,
   onCancel:  () => void,
 ) {
-  const provider =
-    (window as any).LeatherProvider ||
-    (window as any).StacksProvider
+  // v7: serializeCV retourne directement un string hex
+  const { uintCV, serializeCV } = await import('@stacks/transactions')
 
-  if (!provider) {
-    window.open('https://leather.io/install-extension', '_blank')
-    return
-  }
+  const leather = (window as any).LeatherProvider
+  const xverse  = (window as any).XverseProviders?.StacksProvider ||
+                  (window as any).StacksProvider
 
   const microBet = betAmount * 1_000_000
 
-  // Arguments Clarity en format ABI lisible — supporte Leather et Xverse
-  const functionArgs = [
-    { type: 'uint', value: guess.toString() },
-    { type: 'uint', value: microBet.toString() },
-    { type: 'uint', value: token.toString() },
+  const functionArgs: string[] = [
+    serializeCV(uintCV(guess))    as unknown as string,
+    serializeCV(uintCV(microBet)) as unknown as string,
+    serializeCV(uintCV(token))    as unknown as string,
   ]
 
-  try {
-    const response = await provider.request('stx_callContract', {
-      contractAddress:   CONTRACT_ADDRESS,
-      contractName:      CONTRACT_NAME,
-      functionName:      'play',
-      functionArgs,
-      postConditionMode: 'allow',
-      network:           'mainnet',
-    })
-
-    const txid =
-      response?.result?.txid ||
-      response?.txid ||
-      response?.result?.transaction_id
-
-    if (txid) {
-      onFinish(txid)
-    } else {
-      console.warn('[callPlay] no txid in response', response)
+  if (leather) {
+    try {
+      const response = await leather.request('stx_callContract', {
+        contract:          `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`,
+        functionName:      'play',
+        functionArgs,
+        postConditionMode: 'allow',
+        network:           'mainnet',
+      })
+      const txid = response?.result?.txid || response?.result?.transaction_id
+      if (txid) { onFinish(txid) } else { onCancel() }
+      return
+    } catch (e: any) {
+      console.error('[callPlay:leather]', e)
       onCancel()
+      return
     }
-  } catch (e: any) {
-    console.error('[callPlay]', e?.message || e)
-    onCancel()
   }
+
+  if (xverse) {
+    try {
+      const response = await xverse.request('stx_callContract', {
+        contractAddress:   CONTRACT_ADDRESS,
+        contractName:      CONTRACT_NAME,
+        functionName:      'play',
+        functionArgs,
+        postConditionMode: 'allow',
+        network:           'mainnet',
+      })
+      const txid = response?.result?.txid || response?.result?.transaction_id
+      if (txid) { onFinish(txid) } else { onCancel() }
+      return
+    } catch (e: any) {
+      console.error('[callPlay:xverse]', e)
+      onCancel()
+      return
+    }
+  }
+
+  window.open('https://leather.io/install-extension', '_blank')
+  onCancel()
 }
