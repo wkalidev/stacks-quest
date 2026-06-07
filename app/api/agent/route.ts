@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     // Extract JSON action — look for last JSON block
     let action = null
     try {
-      const matches = [...content.matchAll(/\{[^{}]*"type"[^{}]*\}/g)]
+      const matches = [...content.matchAll(/\{"type"[^}]*\}/g)]
       if (matches.length > 0) {
         action = JSON.parse(matches[matches.length - 1][0])
       }
