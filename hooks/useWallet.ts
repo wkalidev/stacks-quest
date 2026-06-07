@@ -32,7 +32,7 @@ export function useWallet(): WalletState {
   }, [])
 
   const connect = async () => {
-    // const leather = (window as any).LeatherProvider
+    const leather: any = null
     const xverse  = (window as any).XverseProviders?.StacksProvider ||
                     (window as any).StacksProvider
 
