@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useWallet } from '../hooks/useWallet'
+import { checkResult } from '../hooks/useContractCall'
 
 const MONO = { fontFamily: "'JetBrains Mono','Fira Code','Courier New',monospace" }
 
@@ -43,9 +44,18 @@ export default function Page() {
   const [pidx,    setPidx]    = useState(0)
   const [streak,  setStreak]  = useState(0)
   const [txid,    setTxid]    = useState<string | null>(null)
+  const [error,   setError]   = useState<string | null>(null)
 
   const puzzle = PUZZLES[pidx]
   const short  = (a: string) => `${a.slice(0,6)}...${a.slice(-4)}`
+
+  // Load streak from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sq_streak')
+      if (saved) setStreak(parseInt(saved))
+    } catch {}
+  }, [])
 
   const fetchBlock = useCallback(async () => {
     try {
@@ -63,13 +73,48 @@ export default function Page() {
   const handleGuess = async () => {
     if (!guess || parseFloat(guess.replace(',', '.')) <= 0) return
     if (!isConnected) { connect(); return }
+    setError(null)
     setState('submitting')
+
     await submitGuess(
       Math.round(parseFloat(guess.replace(',', '.'))),
       parseInt(bet),
       1,
-      (id) => { setTxid(id); setTries(t => t + 1); setGuess(''); setState('playing') },
-      ()  => { setState(tries === 0 ? 'idle' : 'playing') },
+      (id) => {
+        setTxid(id)
+        const newTries = tries + 1
+        setTries(newTries)
+        setGuess('')
+        setState('playing')
+
+        // Poll transaction result for win/lose + hint
+        checkResult(
+          id,
+          Math.round(parseFloat(guess.replace(',', '.'))),
+          () => {
+            // Won
+            setState('won')
+            const newStreak = streak + 1
+            setStreak(newStreak)
+            try { localStorage.setItem('sq_streak', String(newStreak)) } catch {}
+          },
+          () => {
+            // Lost or wrong answer
+            if (newTries >= 3) {
+              setState('lost')
+              setStreak(0)
+              try { localStorage.setItem('sq_streak', '0') } catch {}
+            } else {
+              setState('playing')
+            }
+          },
+          (h) => setHint(h),
+        )
+      },
+      () => {
+        setError('Transaction cancelled or wallet not responding.')
+        setState(tries === 0 ? 'idle' : 'playing')
+      },
     )
   }
 
@@ -91,14 +136,14 @@ export default function Page() {
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2">
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.35)', display: 'inline-block' }}/>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: block ? '#00ff9f' : 'rgba(255,255,255,0.35)', display: 'inline-block', boxShadow: block ? '0 0 6px #00ff9f' : 'none' }}/>
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em' }}>
                 BLOCK_{block || '...'}
               </span>
             </div>
             {streak > 0 && (
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.15em' }}>
-                STREAK_{streak}
+              <span style={{ fontSize: 10, color: '#ffd700', letterSpacing: '0.15em', textShadow: '0 0 8px #ffd700' }}>
+                🔥 STREAK_{streak}
               </span>
             )}
             <button
@@ -154,27 +199,37 @@ export default function Page() {
             </div>
           )}
 
-          {hint && state === 'playing' && (
+          {/* Error message */}
+          {error && (
+            <div style={{ marginBottom: 14, padding: '10px', borderRadius: 8,
+              background: 'rgba(255,68,68,0.07)', border: '1px solid rgba(255,68,68,0.2)' }}>
+              <span style={{ fontSize: 10, color: '#ff6666', letterSpacing: '0.15em' }}>
+                ⚠ {error}
+              </span>
+            </div>
+          )}
+
+          {hint && (state === 'playing') && (
             <div style={{
               marginBottom: 14, padding: '10px', borderRadius: 8, textAlign: 'center',
               background: hint === 'hot' ? 'rgba(255,68,68,0.07)' : hint === 'warm' ? 'rgba(255,165,0,0.07)' : 'rgba(0,150,255,0.07)',
               border: `1px solid ${hint === 'hot' ? 'rgba(255,68,68,0.2)' : hint === 'warm' ? 'rgba(255,165,0,0.2)' : 'rgba(0,150,255,0.2)'}`,
             }}>
               <span style={{ fontSize: 11, letterSpacing: '0.2em', color: hint === 'hot' ? '#ff6666' : hint === 'warm' ? '#ffaa00' : '#4499ff' }}>
-                {hint === 'hot' ? 'HOT — TRY AGAIN' : hint === 'warm' ? 'GETTING WARMER' : 'COLD — TRY AGAIN'}
+                {hint === 'hot' ? '🔥 HOT — VERY CLOSE!' : hint === 'warm' ? '🌡 WARM — GETTING CLOSER' : '🧊 COLD — TRY AGAIN'}
               </span>
             </div>
           )}
 
-          {txid && state === 'playing' && (
+          {txid && (state === 'playing' || state === 'submitting') && (
             <div style={{ marginBottom: 14, padding: '10px', borderRadius: 8,
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', margin: 0 }}>
                 TX_BROADCASTED —{' '}
                 <a href={`https://explorer.hiro.so/txid/${txid}?chain=mainnet`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>
-                  VIEW_ON_EXPLORER
+                  style={{ color: '#00d4ff', textDecoration: 'none' }}>
+                  VIEW_ON_EXPLORER ↗
                 </a>
               </p>
             </div>
@@ -185,23 +240,26 @@ export default function Page() {
               background: 'rgba(0,255,100,0.04)', border: '1px solid rgba(0,255,100,0.15)' }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>◈</div>
               <p style={{ fontSize: 12, color: '#00ff64', letterSpacing: '0.25em', marginBottom: 4 }}>CORRECT_ANSWER</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em', marginBottom: 16 }}>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.15em', marginBottom: 4 }}>
                 +{bet} $B2S + POOL_SHARE EARNED
               </p>
+              <p style={{ fontSize: 10, color: '#ffd700', letterSpacing: '0.15em', marginBottom: 16 }}>
+                🔥 STREAK: {streak}
+              </p>
               <div className="flex justify-center gap-2 flex-wrap">
-                <a href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`Day #${dayId} Stacks Quest solved!\n${puzzle.label} streak: ${streak}\n\nstacks-quest.vercel.app\n#StacksQuest #B2S`)}`}
+                <a href={`https://warpcast.com/~/compose?text=${encodeURIComponent(`🔥 Day #${dayId} Stacks Quest solved! Streak: ${streak}\n\nGuessed ${puzzle.label} correctly and won $B2S!\n\nPlay now: stacks-quest-ten.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
                   target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.15em',
                     background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
                     color: '#a78bfa', textDecoration: 'none', fontFamily: 'inherit' }}>
-                  WARPCAST
+                  SHARE ON WARPCAST
                 </a>
-                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Day #${dayId} Stacks Quest solved! Streak: ${streak}\n\nstacks-quest.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
+                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`🔥 Day #${dayId} Stacks Quest solved! Streak: ${streak}\n\nGuessed ${puzzle.label} correctly!\n\nPlay: stacks-quest-ten.vercel.app\n#StacksQuest #B2S #Stacks`)}`}
                   target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: 9, padding: '6px 12px', borderRadius: 6, letterSpacing: '0.15em',
                     background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                     color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontFamily: 'inherit' }}>
-                  TWITTER
+                  SHARE ON TWITTER
                 </a>
               </div>
             </div>
@@ -235,7 +293,10 @@ export default function Page() {
           {state === 'submitting' && (
             <div style={{ padding: '20px', textAlign: 'center' }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.25em', margin: 0 }}>
-                WAITING_FOR_WALLET...
+                WAITING_FOR_WALLET<span style={{ animation: 'pulse 1s infinite' }}>...</span>
+              </p>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em', marginTop: 8 }}>
+                Check your Leather or Xverse wallet
               </p>
             </div>
           )}
@@ -248,7 +309,7 @@ export default function Page() {
                 </p>
                 <input
                   type="number" value={guess}
-                  onChange={e => setGuess(e.target.value)}
+                  onChange={e => { setGuess(e.target.value); setError(null) }}
                   onKeyDown={e => e.key === 'Enter' && handleGuess()}
                   placeholder="0"
                   style={{
@@ -291,7 +352,7 @@ export default function Page() {
 
           {(state === 'won' || state === 'lost') && (
             <button
-              onClick={() => { setState('idle'); setTries(0); setGuess(''); setHint(null); setTxid(null) }}
+              onClick={() => { setState('idle'); setTries(0); setGuess(''); setHint(null); setTxid(null); setError(null) }}
               style={{
                 width: '100%', padding: 12, borderRadius: 10, marginTop: 8,
                 fontSize: 10, fontWeight: 700, letterSpacing: '0.25em', fontFamily: 'inherit',

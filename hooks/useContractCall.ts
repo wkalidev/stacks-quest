@@ -10,8 +10,8 @@ export async function callPlay(
   onFinish:  (txid: string) => void,
   onCancel:  () => void,
 ) {
-  // v7: serializeCV retourne directement un string hex
-  const { uintCV, serializeCV } = await import('@stacks/transactions')
+  // Import only what we need — avoid type conflicts with serializeCV
+  const stacks = await import('@stacks/transactions')
 
   const leather = (window as any).LeatherProvider
   const xverse  = (window as any).XverseProviders?.StacksProvider ||
@@ -19,11 +19,19 @@ export async function callPlay(
 
   const microBet = betAmount * 1_000_000
 
-  const functionArgs: string[] = [
-    serializeCV(uintCV(guess))    as unknown as string,
-    serializeCV(uintCV(microBet)) as unknown as string,
-    serializeCV(uintCV(token))    as unknown as string,
-  ]
+  // Build CVs
+  const cvGuess  = stacks.uintCV(guess)
+  const cvBet    = stacks.uintCV(microBet)
+  const cvToken  = stacks.uintCV(token)
+
+  // Serialize to hex — works regardless of whether serializeCV returns string or Uint8Array
+  const toHex = (cv: any): string => {
+    const result = stacks.serializeCV(cv)
+    if (typeof result === 'string') return result
+    return Array.from(result as Uint8Array).map((b: number) => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  const functionArgs = [toHex(cvGuess), toHex(cvBet), toHex(cvToken)]
 
   if (leather) {
     try {
@@ -38,7 +46,7 @@ export async function callPlay(
       if (txid) { onFinish(txid) } else { onCancel() }
       return
     } catch (e: any) {
-      console.error('[callPlay:leather]', e)
+      console.error('[callPlay:leather]', e?.message || e)
       onCancel()
       return
     }
@@ -58,7 +66,7 @@ export async function callPlay(
       if (txid) { onFinish(txid) } else { onCancel() }
       return
     } catch (e: any) {
-      console.error('[callPlay:xverse]', e)
+      console.error('[callPlay:xverse]', e?.message || e)
       onCancel()
       return
     }
@@ -66,4 +74,54 @@ export async function callPlay(
 
   window.open('https://leather.io/install-extension', '_blank')
   onCancel()
+}
+
+export async function checkResult(
+  txid:   string,
+  guess:  number,
+  onWin:  () => void,
+  onLose: () => void,
+  onHint: (hint: 'hot' | 'warm' | 'cold') => void,
+) {
+  const maxAttempts = 20
+  let attempts = 0
+
+  const poll = async () => {
+    attempts++
+    try {
+      const res  = await fetch(`https://api.mainnet.hiro.so/extended/v1/tx/${txid}`)
+      const data = await res.json()
+
+      if (data.tx_status === 'success') {
+        const event = data.events?.find((e: any) => e.event_type === 'smart_contract_log')
+        const value = event?.contract_log?.value?.repr
+
+        if (value?.includes('won') || value?.includes('correct')) {
+          onWin(); return
+        }
+        if (value?.includes('lost') || value?.includes('wrong')) {
+          const actual = parseInt(value?.match(/\d+/)?.[0] || '0')
+          if (actual > 0) {
+            const diff = Math.abs(guess - actual) / actual
+            if (diff < 0.01)      onHint('hot')
+            else if (diff < 0.05) onHint('warm')
+            else                  onHint('cold')
+          } else { onHint('cold') }
+          onLose(); return
+        }
+      }
+
+      if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
+        onLose(); return
+      }
+
+      if (attempts < maxAttempts) setTimeout(poll, 3000)
+      else onLose()
+    } catch {
+      if (attempts < maxAttempts) setTimeout(poll, 3000)
+      else onLose()
+    }
+  }
+
+  setTimeout(poll, 3000)
 }
