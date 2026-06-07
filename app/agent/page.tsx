@@ -194,7 +194,7 @@ export default function AgentPage() {
     if (!isConnected || checkedIn || checking) return
     setChecking(true)
     try {
-      // leather disabled
+      const leather = null
       const xverse  = (window as any).XverseProviders?.StacksProvider || (window as any).StacksProvider
       const params  = {
         contract: AGENT_V3, functionName: 'daily-checkin',
@@ -238,7 +238,7 @@ export default function AgentPage() {
         const r = (stacks.serializeCV as any)(cv)
         return Array.from(r as Uint8Array).map((b: number) => b.toString(16).padStart(2,'0')).join('')
       }
-      // leather disabled
+      const leather = null
       const xverse  = (window as any).XverseProviders?.StacksProvider || (window as any).StacksProvider
       const params  = {
         contract: AGENT_V3, functionName: 'withdraw-treasury',
