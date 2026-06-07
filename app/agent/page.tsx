@@ -28,18 +28,7 @@ const TOKEN_COLOR: Record<string, string> = {
 function ActionCard({ action, address }: { action: any; address: string | null }) {
   if (!action?.type) return null
   if (action.type === 'swap') {
-    const url = `${DEX[action.dex] || DEX.velar}?from=${action.tokenIn}&to=${action.tokenOut}&amount=${action.amount}`
-    return (
-      <div style={{ marginTop: 10, padding: '14px', borderRadius: 12, background: 'rgba(0,255,159,0.05)', border: '1px solid rgba(0,255,159,0.25)' }}>
-        <div style={{ fontSize: 9, color: 'rgba(0,255,159,0.5)', letterSpacing: '0.2em', marginBottom: 8 }}>SWAP // {action.dex?.toUpperCase()}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#00ff9f' }}>{action.amount} {action.tokenIn}</span>
-          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>→</span>
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#00d4ff' }}>{action.tokenOut}</span>
-        </div>
-        <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', background: '#00ff9f', color: 'black', textDecoration: 'none', fontFamily: 'inherit' }}>▶ OPEN {action.dex?.toUpperCase()} ↗</a>
-      </div>
-    )
+    return <SwapCard action={action} address={address} />
   }
   if (action.type === 'bridge') {
     return (
