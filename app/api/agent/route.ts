@@ -101,13 +101,13 @@ Always end your response by suggesting the most logical next action for the user
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, address } = await req.json()
+    const { messages, address, systemExtra } = await req.json()
 
     if (!GROQ_API) {
       return NextResponse.json({ error: 'GROQ_API not configured' }, { status: 500 })
     }
 
-    const systemWithContext = SYSTEM_PROMPT + (address
+    const systemWithContext = SYSTEM_PROMPT + (systemExtra || "") + (address
       ? `\n\nCURRENT USER CONTEXT:\n- Wallet: ${address}\n- Network: Stacks Mainnet\n- Always refer to this address when fetching portfolio data`
       : '\n\nNOTE: User wallet not connected yet. Encourage them to connect.')
 
