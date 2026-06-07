@@ -36,3 +36,14 @@ callee_filter = false
 [repl.remote_data]
 enabled = false
 api_url = 'https://api.hiro.so'
+# Agent non-custodial - Clarity 3 / epoch 3.2
+
+[contracts.stacks-quest-agent-v2]
+path = 'contracts/stacks-quest-agent-v2.clar'
+clarity_version = 3
+epoch = '3.2'
+
+[contracts.stacks-quest-agent-v3]
+path = 'contracts/stacks-quest-agent-v3.clar'
+clarity_version = 3
+epoch = '3.2'

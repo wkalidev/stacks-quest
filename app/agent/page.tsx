@@ -7,7 +7,7 @@ import { useWallet } from '../../hooks/useWallet'
 
 const MONO = { fontFamily: "'JetBrains Mono','Fira Code','Courier New',monospace" }
 const CONTRACT = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
-const AGENT_CONTRACT = `${CONTRACT}.stacks-quest-agent-v1`
+const AGENT_CONTRACT = `${CONTRACT}.stacks-quest-agent-v3`
 
 type Message = { role: 'user' | 'assistant'; content: string; action?: any }
 type StreakData = { current_streak: number; best_streak: number; total_checkins: number; pending_reward: number }
@@ -99,7 +99,7 @@ export default function AgentPage() {
     if (!address) return
     try {
       const res = await fetch(
-        `/api/hiro?path=${encodeURIComponent(`/v2/contracts/call-read/${CONTRACT}/stacks-quest-agent-v1/get-streak`)}`,
+        `/api/hiro?path=${encodeURIComponent(`/v2/contracts/call-read/${CONTRACT}/stacks-quest-agent-v3/get-streak`)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -186,7 +186,7 @@ export default function AgentPage() {
       } else if (xverse) {
         const res = await xverse.request('stx_callContract', {
           contractAddress: CONTRACT,
-          contractName:    'stacks-quest-agent-v1',
+          contractName:    'stacks-quest-agent-v3',
           ...params,
         })
         txid = res?.result?.txid || res?.result?.transaction_id
