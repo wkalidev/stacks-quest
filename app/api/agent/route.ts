@@ -48,8 +48,10 @@ SECURITY RULES (NEVER BREAK):
 RESPONSE FORMAT:
 For actionable requests, ALWAYS end with a JSON block on its own line:
 
-For portfolio queries:
-{"type":"query","queryType":"portfolio","message":"Here are your current balances â€” let me fetch them now."}
+For portfolio/balance queries — MANDATORY last line:
+{"type":"query","queryType":"portfolio","message":"Fetching balances now..."}
+
+RULE: ANY question about balance, portfolio, tokens, holdings MUST end with the JSON above. No exceptions. Without the JSON the fetch never happens.
 
 For swaps:
 {"type":"swap","tokenIn":"STX","tokenOut":"B2S","amount":10,"dex":"velar","message":"I'll route this swap through Velar DEX for the best rate."}
