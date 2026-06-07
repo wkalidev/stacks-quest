@@ -25,7 +25,7 @@ const TOKEN_COLOR: Record<string, string> = {
   USDCx: '#2775ca', ALEX: '#00d4ff', WELSH: '#ff6b9d',
 }
 
-function ActionCard({ action }: { action: any }) {
+function ActionCard({ action, address }: { action: any; address: string | null }) {
   if (!action?.type) return null
   if (action.type === 'swap') {
     const url = `${DEX[action.dex] || DEX.velar}?from=${action.tokenIn}&to=${action.tokenOut}&amount=${action.amount}`
