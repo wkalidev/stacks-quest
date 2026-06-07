@@ -253,7 +253,7 @@ export default function AgentPage() {
                 <div style={{ maxWidth: '88%', padding: '12px 14px', borderRadius: 12, background: m.role === 'user' ? 'rgba(255,255,255,0.07)' : 'rgba(0,255,159,0.04)', border: m.role === 'user' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,255,159,0.12)' }}>
                   {m.role === 'assistant' && <p style={{ fontSize: 7, color: 'rgba(0,255,159,0.5)', letterSpacing: '0.25em', marginBottom: 5 }}>AGENT</p>}
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.65, margin: 0, whiteSpace: 'pre-wrap' }}>{m.content}</p>
-                  {m.action && <ActionCard action={m.action} />}
+                  {m.action && <ActionCard action={m.action} address={address} />}
                 </div>
               </div>
             ))}
