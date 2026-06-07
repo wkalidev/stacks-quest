@@ -32,11 +32,11 @@ export function useWallet(): WalletState {
   }, [])
 
   const connect = async () => {
-    const leather = (window as any).LeatherProvider
+    // const leather = (window as any).LeatherProvider
     const xverse  = (window as any).XverseProviders?.StacksProvider ||
                     (window as any).StacksProvider
 
-    if (!leather && !xverse) {
+    if (!xverse) {
       window.open('https://leather.io/install-extension', '_blank')
       return
     }
@@ -44,7 +44,7 @@ export function useWallet(): WalletState {
     try {
       let addr: string | null = null
 
-      if (leather) {
+      if (false) {
         const res = await leather.request('getAddresses')
         addr = res?.result?.addresses?.find((a: any) => a.symbol === 'STX')?.address
       }

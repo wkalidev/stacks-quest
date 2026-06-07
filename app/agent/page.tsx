@@ -194,14 +194,14 @@ export default function AgentPage() {
     if (!isConnected || checkedIn || checking) return
     setChecking(true)
     try {
-      const leather = (window as any).LeatherProvider
+      // leather disabled
       const xverse  = (window as any).XverseProviders?.StacksProvider || (window as any).StacksProvider
       const params  = {
         contract: AGENT_V3, functionName: 'daily-checkin',
         functionArgs: [] as any[], postConditionMode: 'allow', network: 'mainnet',
       }
       let txid: string | null = null
-      if (leather) {
+      if (false) {
         const r = await leather.request('stx_callContract', params)
         txid = r?.result?.txid || r?.result?.transaction_id
       } else if (xverse) {
@@ -238,7 +238,7 @@ export default function AgentPage() {
         const r = (stacks.serializeCV as any)(cv)
         return Array.from(r as Uint8Array).map((b: number) => b.toString(16).padStart(2,'0')).join('')
       }
-      const leather = (window as any).LeatherProvider
+      // leather disabled
       const xverse  = (window as any).XverseProviders?.StacksProvider || (window as any).StacksProvider
       const params  = {
         contract: AGENT_V3, functionName: 'withdraw-treasury',
@@ -246,7 +246,7 @@ export default function AgentPage() {
         postConditionMode: 'allow', network: 'mainnet',
       }
       let txid: string | null = null
-      if (leather) {
+      if (false) {
         const r = await leather.request('stx_callContract', params)
         txid = r?.result?.txid || r?.result?.transaction_id
       } else if (xverse) {

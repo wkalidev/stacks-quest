@@ -33,7 +33,7 @@ export async function callPlay(
 
   const functionArgs = [toHex(cvGuess), toHex(cvBet), toHex(cvToken)]
 
-  if (leather) {
+  if (false) {
     try {
       const response = await leather.request('stx_callContract', {
         contract:          `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`,
