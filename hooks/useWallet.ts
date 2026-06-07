@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { callPlay } from './useContractCall'
 
@@ -32,35 +31,24 @@ export function useWallet(): WalletState {
   }, [])
 
   const connect = async () => {
-    const leather: any = null
-    const xverse  = (window as any).XverseProviders?.StacksProvider ||
-                    (window as any).StacksProvider
-
-    if (!xverse) {
-      window.open('https://leather.io/install-extension', '_blank')
-      return
-    }
-
     try {
-      let addr: string | null = null
-
-      if (false) {
-        const res = await leather.request('getAddresses')
-        addr = res?.result?.addresses?.find((a: any) => a.symbol === 'STX')?.address
-      }
-
-      if (!addr && xverse) {
-        const res = await xverse.request('getAddresses', null)
-        addr =
-          res?.result?.addresses?.find((a: any) => a.symbol === 'STX')?.address ||
-          res?.addresses?.find((a: any) => a.symbol === 'STX')?.address
-      }
-
-      if (addr) {
-        setAddress(addr)
-        setIsConnected(true)
-        localStorage.setItem('sq_address', addr)
-      }
+      // Try Xverse via showConnect
+      const { showConnect } = await import('@stacks/connect')
+      showConnect({
+        appDetails: { name: 'Stacks Agent', icon: '/favicon.ico' },
+        onFinish: (data: any) => {
+          const addr = data?.userSession?.loadUserData()?.profile?.stxAddress?.mainnet
+            || data?.addresses?.find((a: any) => a.symbol === 'STX' || a.type === 'p2pkh')?.address
+            || data?.profile?.stxAddress?.mainnet
+          if (addr) {
+            setAddress(addr)
+            setIsConnected(true)
+            localStorage.setItem('sq_address', addr)
+          }
+        },
+        onCancel: () => console.log('Wallet connect cancelled'),
+        userSession: undefined as any,
+      })
     } catch (e: any) {
       console.error('[useWallet] connect error:', e?.message || e)
     }
