@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useWallet }
 from '../../hooks/useWallet'
-import { SwapCard } from '../components/SwapCard'
+import { SwapCard } from '../../components/SwapCard'
 
 const CONTRACT   = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const AGENT_V3   = 'stacks-quest-agent-v3'
