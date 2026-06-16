@@ -166,15 +166,49 @@ npm run dev
 
 ---
 
-## Multichain Roadmap
+## Multichain Support
 
-Coming soon:
+| Chain | Game Contract | Check-in Contract | Status |
+|-------|--------------|-------------------|--------|
+| Stacks | stacks-quest-v2 | stacks-quest-agent-v3 | ✅ Live |
+| Base | QuestGame.sol | QuestCheckIn.sol | 🔜 Deploying |
+| Celo | QuestGame.sol | QuestCheckIn.sol | 🔜 Deploying |
 
-| Chain | Status |
-|-------|--------|
-| Stacks | ✅ Live |
-| Base | 🔜 Coming soon |
-| Celo | 🔜 Coming soon |
+### Tokens per Chain
+
+| Chain | Native | Stablecoins | Other |
+|-------|--------|-------------|-------|
+| Stacks | STX | USDCx, aeUSDC | $B2S, sBTC |
+| Base | ETH | USDC, USDT | — |
+| Celo | CELO | cUSD | — |
+
+---
+
+## SDK
+
+```bash
+npm install @wkalidev/stacks-quest-sdk
+```
+
+```typescript
+import StacksQuestSDK from '@wkalidev/stacks-quest-sdk'
+
+const sdk = new StacksQuestSDK()
+
+// Get today's puzzle on any chain
+const puzzle = await sdk.getPuzzle('stacks')
+const puzzle = await sdk.getPuzzle('base')
+const puzzle = await sdk.getPuzzle('celo')
+
+// Get player stats
+const stats = await sdk.getPlayerStats('SP1ABC...', 'stacks')
+const stats = await sdk.getPlayerStats('0xABC...', 'base')
+
+// Get supported tokens
+sdk.getSupportedTokens('stacks') // ['STX', 'B2S', 'USDCX', 'AEUSDC', 'SBTC']
+sdk.getSupportedTokens('base')   // ['ETH', 'USDC', 'USDT']
+sdk.getSupportedTokens('celo')   // ['CELO', 'CUSD']
+```
 
 ---
 
