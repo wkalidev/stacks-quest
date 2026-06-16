@@ -5,9 +5,22 @@ Daily blockchain puzzle game + non-custodial DeFi agent on Stacks (Bitcoin L2).
 ## Live App
 
 - **Landing:** [https://stacks-quest-ten.vercel.app](https://stacks-quest-ten.vercel.app)
+- **Game:** [https://stacks-quest-ten.vercel.app/game](https://stacks-quest-ten.vercel.app/game)
 - **Agent:** [https://stacks-quest-ten.vercel.app/agent](https://stacks-quest-ten.vercel.app/agent)
 
 ---
+
+## How to Play
+
+Visit [/game](https://stacks-quest-ten.vercel.app/game) to play the daily puzzle.
+
+1. Connect your Leather or Xverse wallet
+2. Read today's puzzle (Stacks block height, STX price, or tx count)
+3. Enter your numeric guess
+4. Choose a token (STX, $B2S, USDCx, or sBTC) and bet amount (1–100)
+5. Submit — you get a hot / warm / cold hint immediately
+6. Winners split the daily reward pool for their token
+7. Hit the check-in button daily to build your streak and earn bonus rewards
 
 ## Daily Puzzle Mechanics
 
@@ -150,6 +163,26 @@ npm install
 cp .env .env.local  # fill in your keys
 npm run dev
 ```
+
+---
+
+## Multichain Roadmap
+
+Coming soon:
+
+| Chain | Status |
+|-------|--------|
+| Stacks | ✅ Live |
+| Base | 🔜 Coming soon |
+| Celo | 🔜 Coming soon |
+
+---
+
+## Stacks Builder Rewards
+
+Stacks Quest is an active participant in [Stacks Builder Rewards](https://stacks.co/builder-rewards).
+
+Every game guess, check-in, and agent swap is a real on-chain transaction on Stacks — driving genuine L2 activity on Bitcoin.
 
 ---
 
