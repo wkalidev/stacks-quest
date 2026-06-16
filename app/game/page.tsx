@@ -1,0 +1,396 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { useWallet } from '../../hooks/useWallet'
+import { useQuest } from '../../hooks/useQuest'
+import Link from 'next/link'
+
+const TOKENS = {
+  stacks: [
+    { symbol: 'STX',   label: 'STX',   contract: null,                                                       decimals: 6, color: '#9945ff' },
+    { symbol: 'B2S',   label: '$B2S',  contract: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4', decimals: 6, color: '#00ff9f' },
+    { symbol: 'USDCX', label: 'USDCx', contract: 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx',       decimals: 6, color: '#2775ca' },
+    { symbol: 'SBTC',  label: 'sBTC',  contract: 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token',  decimals: 8, color: '#f7931a' },
+  ],
+}
+
+export default function GamePage() {
+  const { isConnected, address, connect } = useWallet()
+  const { getTodayPuzzle, hasPlayedToday, getPlayerStats } = useQuest()
+
+  const [puzzle, setPuzzle]         = useState<any>(null)
+  const [guess, setGuess]           = useState('')
+  const [bet, setBet]               = useState('10')
+  const [selectedToken, setToken]   = useState('STX')
+  const [loading, setLoading]       = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [result, setResult]         = useState<'hot' | 'warm' | 'cold' | null>(null)
+  const [played, setPlayed]         = useState(false)
+  const [stats, setStats]           = useState<any>(null)
+  const [txId, setTxId]             = useState<string | null>(null)
+  const [error, setError]           = useState<string | null>(null)
+  const [checkedInToday, setCheckedInToday] = useState(false)
+  const [checkingIn, setCheckingIn] = useState(false)
+
+  const puzzleNumber = Math.floor(Date.now() / 86400000)
+
+  useEffect(() => { loadPuzzle() }, [])
+
+  useEffect(() => {
+    if (isConnected && address) {
+      checkPlayed()
+      loadStats()
+      loadCheckinStatus()
+    }
+  }, [isConnected, address])
+
+  async function loadPuzzle() {
+    setLoading(true)
+    try {
+      const data = await getTodayPuzzle()
+      setPuzzle(data)
+    } catch {
+      setPuzzle({ question: 'What is the current Stacks block height?', type: 'block-height' })
+    }
+    setLoading(false)
+  }
+
+  async function checkPlayed() {
+    if (!address) return
+    const todayKey = new Date().toISOString().slice(0, 10)
+    try {
+      if (localStorage.getItem(`sq_played_${address}_${todayKey}`)) { setPlayed(true); return }
+    } catch {}
+    const r = await hasPlayedToday(address)
+    setPlayed(!!r)
+  }
+
+  async function loadStats() {
+    if (!address) return
+    const s = await getPlayerStats(address)
+    setStats(s)
+  }
+
+  function loadCheckinStatus() {
+    if (!address) return
+    try {
+      const s = localStorage.getItem(`sq_streak_${address}`)
+      if (s) {
+        const d = JSON.parse(s)
+        const today = Math.floor(Date.now() / (144 * 10 * 60 * 1000))
+        setCheckedInToday(d.last_checkin_day === today)
+      }
+    } catch {}
+  }
+
+  async function handleCheckIn() {
+    if (!isConnected || !address || checkedInToday || checkingIn) return
+    setCheckingIn(true)
+    try {
+      const { openContractCall } = await import('@stacks/connect')
+      const stacks = await import('@stacks/transactions')
+      await openContractCall({
+        contractAddress: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N',
+        contractName: 'stacks-quest-agent-v3',
+        functionName: 'daily-checkin',
+        functionArgs: [],
+        postConditionMode: stacks.PostConditionMode.Allow,
+        network: 'mainnet' as any,
+        onFinish: () => {
+          const today = Math.floor(Date.now() / (144 * 10 * 60 * 1000))
+          try {
+            const s = localStorage.getItem(`sq_streak_${address}`)
+            const d = s ? JSON.parse(s) : { current_streak: 0, best_streak: 0, total_checkins: 0 }
+            const ns = {
+              current_streak: (d.current_streak || 0) + 1,
+              best_streak: Math.max(d.best_streak || 0, (d.current_streak || 0) + 1),
+              total_checkins: (d.total_checkins || 0) + 1,
+              last_checkin_day: today,
+            }
+            localStorage.setItem(`sq_streak_${address}`, JSON.stringify(ns))
+            setStats((prev: any) => ({ ...(prev || {}), streak: ns.current_streak, total: ns.total_checkins }))
+          } catch {}
+          setCheckedInToday(true)
+          setCheckingIn(false)
+        },
+        onCancel: () => setCheckingIn(false),
+      })
+    } catch {
+      setCheckingIn(false)
+    }
+  }
+
+  async function submitGuess() {
+    if (!isConnected || !address || !guess || submitting) return
+    const guessNum = parseInt(guess)
+    if (isNaN(guessNum) || guessNum <= 0) { setError('Invalid guess'); return }
+    const betNum = parseFloat(bet)
+    if (isNaN(betNum) || betNum <= 0) { setError('Invalid bet'); return }
+
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      const { openContractCall } = await import('@stacks/connect')
+      const stacks = await import('@stacks/transactions')
+
+      const CONTRACT = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
+      const tokenInfo = TOKENS.stacks.find(t => t.symbol === selectedToken)!
+      const betMicro = Math.floor(betNum * Math.pow(10, tokenInfo.decimals))
+
+      const functionArgs: any[] = [
+        stacks.uintCV(guessNum),
+        stacks.uintCV(betMicro),
+      ]
+
+      if (tokenInfo.contract) {
+        functionArgs.push(stacks.contractPrincipalCV(
+          tokenInfo.contract.split('.')[0],
+          tokenInfo.contract.split('.')[1],
+        ))
+      }
+
+      const functionName = tokenInfo.symbol === 'STX' ? 'submit-guess-stx' : 'submit-guess-token'
+
+      await openContractCall({
+        contractAddress: CONTRACT,
+        contractName: 'stacks-quest-v2',
+        functionName,
+        functionArgs,
+        postConditionMode: stacks.PostConditionMode.Allow,
+        network: 'mainnet' as any,
+        onFinish: (data: any) => {
+          const tx = data?.txId || data?.txid
+          if (tx) {
+            setTxId(tx)
+            setPlayed(true)
+            try {
+              const todayKey = new Date().toISOString().slice(0, 10)
+              localStorage.setItem(`sq_played_${address}_${todayKey}`, '1')
+            } catch {}
+            setResult('warm')
+          }
+          setSubmitting(false)
+        },
+        onCancel: () => setSubmitting(false),
+      })
+    } catch {
+      setError('Transaction failed. Please try again.')
+      setSubmitting(false)
+    }
+  }
+
+  function generateShareText(r: 'hot' | 'warm' | 'cold') {
+    const emoji = { hot: '🔥', warm: '🌡️', cold: '🧊' }[r]
+    return `${emoji} Stacks Quest Daily #${puzzleNumber}\n🔥 Streak: ${stats?.streak || 0} days\n👉 stacks-quest-ten.vercel.app\n#StacksQuest #Bitcoin #Stacks`
+  }
+
+  const token = TOKENS.stacks.find(t => t.symbol === selectedToken)!
+
+  return (
+    <main style={{ minHeight: '100vh', background: '#080810', color: '#fff', fontFamily: 'monospace', padding: '20px' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#9945ff', margin: 0 }}>Stacks Quest</h1>
+            <p style={{ color: '#555', fontSize: 11, margin: '2px 0 0' }}>Daily Puzzle #{puzzleNumber}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link href="/agent" style={{ padding: '6px 12px', borderRadius: 6, background: 'rgba(153,69,255,0.1)', border: '1px solid rgba(153,69,255,0.3)', color: '#9945ff', fontSize: 11, textDecoration: 'none' }}>
+              🤖 Agent
+            </Link>
+            {isConnected ? (
+              <div style={{ padding: '6px 12px', borderRadius: 6, background: 'rgba(0,255,159,0.1)', border: '1px solid rgba(0,255,159,0.3)', color: '#00ff9f', fontSize: 11 }}>
+                {address?.slice(0, 6)}...{address?.slice(-4)}
+              </div>
+            ) : (
+              <button onClick={connect} style={{ padding: '6px 12px', borderRadius: 6, background: '#9945ff', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'monospace' }}>
+                Connect Wallet
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats bar */}
+        {stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 20 }}>
+            {[
+              { label: 'STREAK',      value: `${stats.streak || 0} days` },
+              { label: 'TOTAL PLAYS', value: stats.total || 0 },
+              { label: 'WINS',        value: stats.wins || 0 },
+            ].map(s => (
+              <div key={s.label} style={{ background: '#111', border: '1px solid #222', borderRadius: 8, padding: '10px 12px' }}>
+                <p style={{ color: '#444', fontSize: 9, margin: '0 0 2px', letterSpacing: '0.1em' }}>{s.label}</p>
+                <p style={{ color: '#9945ff', fontSize: 16, fontWeight: 700, margin: 0 }}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Puzzle card */}
+        <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          {loading ? (
+            <p style={{ color: '#444', fontSize: 13 }}>Loading today&apos;s puzzle...</p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ background: 'rgba(153,69,255,0.15)', border: '1px solid rgba(153,69,255,0.3)', color: '#9945ff', fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700 }}>DAILY PUZZLE</span>
+                <span style={{ color: '#333', fontSize: 10 }}>1 guess per day</span>
+              </div>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.5, margin: '0 0 16px' }}>
+                {puzzle?.question || 'What is the current Stacks block height?'}
+              </p>
+              <p style={{ color: '#555', fontSize: 11, margin: 0 }}>Hot/warm/cold hints after your guess</p>
+            </>
+          )}
+        </div>
+
+        {/* Daily check-in */}
+        {isConnected && !checkedInToday && (
+          <div style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ color: '#ffd700', fontWeight: 700, margin: '0 0 2px', fontSize: 13 }}>🔥 Daily Check-in</p>
+              <p style={{ color: '#555', fontSize: 11, margin: 0 }}>0.001 STX · Build your streak · Earn bonus rewards</p>
+            </div>
+            <button
+              onClick={handleCheckIn}
+              disabled={checkingIn}
+              style={{ padding: '8px 14px', background: '#ffd700', color: '#000', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: checkingIn ? 'wait' : 'pointer', fontFamily: 'monospace' }}
+            >
+              {checkingIn ? '...' : 'Check In'}
+            </button>
+          </div>
+        )}
+
+        {/* Already played */}
+        {played && txId && (
+          <div style={{ background: 'rgba(0,255,159,0.05)', border: '1px solid rgba(0,255,159,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <p style={{ color: '#00ff9f', fontWeight: 700, margin: '0 0 8px' }}>
+              {result === 'hot' ? '🔥 HOT — Very close!' : result === 'warm' ? '🌡️ WARM — Getting there!' : '🧊 COLD — Try again tomorrow'}
+            </p>
+            <p style={{ color: '#555', fontSize: 12, margin: '0 0 12px' }}>
+              You&apos;ve played today. Come back tomorrow!
+            </p>
+            <a
+              href={`https://warpcast.com/~/compose?text=${encodeURIComponent(generateShareText(result || 'warm'))}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ display: 'inline-block', padding: '8px 16px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', borderRadius: 8, fontSize: 12, textDecoration: 'none', fontWeight: 700 }}
+            >
+              🟣 Share on Farcaster
+            </a>
+          </div>
+        )}
+
+        {played && !txId && (
+          <div style={{ background: 'rgba(153,69,255,0.05)', border: '1px solid rgba(153,69,255,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <p style={{ color: '#9945ff', margin: 0 }}>✓ Already played today. Come back tomorrow!</p>
+          </div>
+        )}
+
+        {/* Submit form */}
+        {!played && isConnected && (
+          <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+            <p style={{ color: '#555', fontSize: 11, margin: '0 0 16px', letterSpacing: '0.1em' }}>YOUR GUESS</p>
+
+            <input
+              type="number"
+              value={guess}
+              onChange={e => setGuess(e.target.value)}
+              placeholder="Enter your answer..."
+              style={{ width: '100%', padding: '12px', background: '#080810', border: '1px solid #222', borderRadius: 8, color: '#fff', fontSize: 16, fontFamily: 'monospace', marginBottom: 12, boxSizing: 'border-box' }}
+            />
+
+            <p style={{ color: '#555', fontSize: 11, margin: '0 0 8px', letterSpacing: '0.1em' }}>TOKEN & BET</p>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+              {TOKENS.stacks.map(t => (
+                <button
+                  key={t.symbol}
+                  onClick={() => setToken(t.symbol)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'monospace',
+                    background: selectedToken === t.symbol ? t.color : 'transparent',
+                    color: selectedToken === t.symbol ? '#000' : t.color,
+                    border: `1px solid ${t.color}44`,
+                  }}
+                >{t.label}</button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {['1', '10', '50', '100'].map(v => (
+                <button
+                  key={v}
+                  onClick={() => setBet(v)}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'monospace',
+                    background: bet === v ? 'rgba(153,69,255,0.2)' : 'transparent',
+                    color: bet === v ? '#9945ff' : '#555',
+                    border: `1px solid ${bet === v ? 'rgba(153,69,255,0.4)' : '#222'}`,
+                  }}
+                >{v} {token.symbol === 'SBTC' ? 'sBTC' : selectedToken}</button>
+              ))}
+            </div>
+
+            {error && <p style={{ color: '#ff4444', fontSize: 12, marginBottom: 8 }}>{error}</p>}
+
+            <button
+              onClick={submitGuess}
+              disabled={submitting || !guess}
+              style={{
+                width: '100%', padding: '14px', borderRadius: 10, fontSize: 15, fontWeight: 900,
+                background: submitting || !guess ? '#1a1a2e' : '#9945ff',
+                color: submitting || !guess ? '#444' : '#fff',
+                border: 'none', cursor: submitting || !guess ? 'not-allowed' : 'pointer',
+                fontFamily: 'monospace', letterSpacing: '0.05em',
+              }}
+            >
+              {submitting ? 'Submitting...' : `▶ BET ${bet} ${selectedToken} & SUBMIT`}
+            </button>
+
+            <p style={{ color: '#333', fontSize: 10, textAlign: 'center', marginTop: 8 }}>
+              Winners split the reward pool · 1 guess per day
+            </p>
+          </div>
+        )}
+
+        {/* Connect prompt */}
+        {!isConnected && (
+          <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 16 }}>
+            <p style={{ color: '#555', marginBottom: 16 }}>Connect your Leather or Xverse wallet to play</p>
+            <button
+              onClick={connect}
+              style={{ padding: '12px 24px', borderRadius: 10, background: '#9945ff', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}
+            >
+              Connect Wallet
+            </button>
+          </div>
+        )}
+
+        {/* How it works */}
+        <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <p style={{ color: '#444', fontSize: 10, letterSpacing: '0.1em', margin: '0 0 12px' }}>HOW IT WORKS</p>
+          {[
+            ['1', 'Guess real Stacks blockchain data (block height, price, tx count)'],
+            ['2', 'Bet STX, $B2S, USDCx or sBTC (1-100 tokens)'],
+            ['3', 'Correct guesses win a share of the daily reward pool'],
+            ['4', 'Hot / warm / cold hints after your guess'],
+            ['5', 'Check in daily to build your streak and earn bonus rewards'],
+          ].map(([n, t]) => (
+            <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+              <span style={{ color: '#9945ff', fontWeight: 700, minWidth: 14 }}>{n}.</span>
+              <span style={{ color: '#666', fontSize: 12 }}>{t}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, paddingTop: 16, borderTop: '1px solid #111' }}>
+          <Link href="/agent" style={{ color: '#9945ff', fontSize: 12, textDecoration: 'none' }}>🤖 DeFi Agent</Link>
+          <a href="https://base2stacks-tracker.vercel.app" style={{ color: '#555', fontSize: 12 }}>🌉 Bridge</a>
+          <a href="https://github.com/wkalidev/stacks-quest" style={{ color: '#555', fontSize: 12 }}>GitHub</a>
+        </div>
+      </div>
+    </main>
+  )
+}
