@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["sdk-src/**/*"],
+  "include": ["./**/*"],
   "exclude": ["node_modules", "sdk"]
 }
