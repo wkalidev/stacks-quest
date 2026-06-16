@@ -12,7 +12,6 @@ export function useQuest() {
   const [error,   setError]   = useState<string | null>(null)
   const [txId,    setTxId]    = useState<string | null>(null)
 
-  // Appel read-only via API Hiro — pas besoin de @stacks/transactions
   const readOnly = async (fn: string, args: any[], sender: string) => {
     try {
       const res = await fetch(
@@ -28,14 +27,52 @@ export function useQuest() {
     } catch { return null }
   }
 
-  const getTodayPuzzle = (addr = CONTRACT_ADDRESS) =>
-    readOnly('get-today-puzzle', [], addr)
+  const getTodayPuzzle = async () => {
+    try {
+      const res = await fetch(`${API}/v2/info`)
+      const info = await res.json()
+      const height: number = info.stacks_tip_height
+      const puzzleTypes = [
+        {
+          type: 'block-height',
+          question: `What is the current Stacks block height? (hint: it's around ${Math.floor(height / 1000) * 1000})`,
+          answer: height,
+        },
+        {
+          type: 'stx-price',
+          question: 'What is the current STX price in USD cents? (e.g. enter 25 for $0.25)',
+          answer: null,
+        },
+      ]
+      const today = new Date().getDate() % puzzleTypes.length
+      return puzzleTypes[today]
+    } catch {
+      return { type: 'block-height', question: 'What is the current Stacks block height?', answer: null }
+    }
+  }
 
-  const getPlayerStats = (addr: string) =>
-    readOnly('get-player-stats', [principalToHex(addr)], addr)
+  const getPlayerStats = async (addr: string) => {
+    try {
+      const s = typeof window !== 'undefined' ? localStorage.getItem(`sq_streak_${addr}`) : null
+      if (s) {
+        const d = JSON.parse(s)
+        return { streak: d.current_streak || 0, total: d.total_checkins || 0, wins: 0 }
+      }
+    } catch {}
+    return { streak: 0, total: 0, wins: 0 }
+  }
 
-  const hasPlayedToday = (addr: string) =>
-    readOnly('has-played-today', [principalToHex(addr)], addr)
+  const hasPlayedToday = async (addr: string): Promise<boolean> => {
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10)
+      const s = typeof window !== 'undefined' ? localStorage.getItem(`sq_played_${addr}_${todayKey}`) : null
+      if (s) return true
+    } catch {}
+    try {
+      const result = await readOnly('has-played-today', [principalToHex(addr)], addr)
+      return result === '0x03'
+    } catch { return false }
+  }
 
   return { getTodayPuzzle, getPlayerStats, hasPlayedToday, loading, error, txId }
 }
@@ -45,7 +82,7 @@ function principalToHex(addr: string): string {
   try {
     const hex = serializeCV(principalCV(addr))
     // serializeCV returns a hex string without 0x prefix in @stacks/transactions v7
-    return hex.startsWith('0x') ? hex : `0x${hex}`
+    return (hex as unknown as string).startsWith('0x') ? (hex as unknown as string) : `0x${hex}`
   } catch {
     return addr
   }
