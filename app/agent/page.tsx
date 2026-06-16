@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { useWallet } from '../../hooks/useWallet'
 import { SwapCard } from '../../components/SwapCard'
 
@@ -277,6 +278,9 @@ export default function AgentTerminal() {
             </button>
           ))}
         </div>
+        <Link href="/game" style={{ fontSize: 10, color: '#555', textDecoration: 'none', padding: '4px 8px', border: '1px solid #222', borderRadius: 4 }}>
+          ← Game
+        </Link>
         <div style={{ width: 1, height: 12, background: '#1a2030' }} />
         <button onClick={isConnected ? disconnect : connect}
           style={{ padding: '4px 12px', borderRadius: 4, fontSize: 9, fontFamily: MONO, cursor: 'pointer', letterSpacing: '0.15em', fontWeight: 700, background: isConnected ? 'rgba(255,68,68,0.1)' : 'rgba(0,255,159,0.1)', border: isConnected ? '1px solid rgba(255,68,68,0.3)' : '1px solid rgba(0,255,159,0.3)', color: isConnected ? '#ff6666' : '#00ff9f' }}>
