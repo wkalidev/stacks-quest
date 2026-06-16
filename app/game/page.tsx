@@ -1,20 +1,14 @@
 'use client'
+export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useWallet } from '../../hooks/useWallet'
 import { useQuest } from '../../hooks/useQuest'
+import ChainSelector from '../../components/ChainSelector'
+import { CHAINS, ChainId } from '../lib/chains'
 import Link from 'next/link'
 
-const TOKENS = {
-  stacks: [
-    { symbol: 'STX',   label: 'STX',   contract: null,                                                       decimals: 6, color: '#9945ff' },
-    { symbol: 'B2S',   label: '$B2S',  contract: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4', decimals: 6, color: '#00ff9f' },
-    { symbol: 'USDCX', label: 'USDCx', contract: 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx',       decimals: 6, color: '#2775ca' },
-    { symbol: 'SBTC',  label: 'sBTC',  contract: 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token',  decimals: 8, color: '#f7931a' },
-  ],
-}
-
 export default function GamePage() {
-  const { isConnected, address, connect } = useWallet()
+  const { mounted, isConnected, address, connect } = useWallet()
   const { getTodayPuzzle, hasPlayedToday, getPlayerStats } = useQuest()
 
   const [puzzle, setPuzzle]         = useState<any>(null)
@@ -30,6 +24,10 @@ export default function GamePage() {
   const [error, setError]           = useState<string | null>(null)
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [checkingIn, setCheckingIn] = useState(false)
+  const [selectedChain, setSelectedChain] = useState<ChainId>('stacks')
+
+  const currentChain = CHAINS[selectedChain]
+  const chainTokens  = currentChain.tokens as unknown as { symbol: string; label: string; decimals: number; color: string; native: boolean; address: string | null }[]
 
   const puzzleNumber = Math.floor(Date.now() / 86400000)
 
@@ -42,6 +40,16 @@ export default function GamePage() {
       loadCheckinStatus()
     }
   }, [isConnected, address])
+
+  if (!mounted) return null
+
+  function handleChainChange(chain: ChainId) {
+    setSelectedChain(chain)
+    setToken(CHAINS[chain].tokens[0].symbol)
+    setPuzzle(null)
+    setGuess('')
+    setBet('10')
+  }
 
   async function loadPuzzle() {
     setLoading(true)
@@ -134,22 +142,19 @@ export default function GamePage() {
       const stacks = await import('@stacks/transactions')
 
       const CONTRACT = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
-      const tokenInfo = TOKENS.stacks.find(t => t.symbol === selectedToken)!
+      // token IDs match the contract: 0=STX, 1=B2S, 2=USDCx, 3=sBTC
+      const TOKEN_IDS: Record<string, number> = { STX: 0, B2S: 1, USDCX: 2, SBTC: 3 }
+      const tokenInfo = chainTokens.find(t => t.symbol === selectedToken)!
       const betMicro = Math.floor(betNum * Math.pow(10, tokenInfo.decimals))
+      const tokenId = TOKEN_IDS[selectedToken] ?? 0
 
-      const functionArgs: any[] = [
+      const functionArgs = [
         stacks.uintCV(guessNum),
         stacks.uintCV(betMicro),
+        stacks.uintCV(tokenId),
       ]
 
-      if (tokenInfo.contract) {
-        functionArgs.push(stacks.contractPrincipalCV(
-          tokenInfo.contract.split('.')[0],
-          tokenInfo.contract.split('.')[1],
-        ))
-      }
-
-      const functionName = tokenInfo.symbol === 'STX' ? 'submit-guess-stx' : 'submit-guess-token'
+      const functionName = 'play'
 
       await openContractCall({
         contractAddress: CONTRACT,
@@ -184,7 +189,8 @@ export default function GamePage() {
     return `${emoji} Stacks Quest Daily #${puzzleNumber}\n🔥 Streak: ${stats?.streak || 0} days\n👉 stacks-quest-ten.vercel.app\n#StacksQuest #Bitcoin #Stacks`
   }
 
-  const token = TOKENS.stacks.find(t => t.symbol === selectedToken)!
+  const token = chainTokens.find(t => t.symbol === selectedToken) ?? chainTokens[0]
+  const isChainLive = !!currentChain.contracts.game
 
   return (
     <main style={{ minHeight: '100vh', background: '#080810', color: '#fff', fontFamily: 'monospace', padding: '20px' }}>
@@ -228,6 +234,11 @@ export default function GamePage() {
           </div>
         )}
 
+        {/* Chain selector */}
+        <div style={{ marginBottom: 16 }}>
+          <ChainSelector selected={selectedChain} onChange={handleChainChange} />
+        </div>
+
         {/* Puzzle card */}
         <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 20, marginBottom: 16 }}>
           {loading ? (
@@ -241,7 +252,10 @@ export default function GamePage() {
               <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.5, margin: '0 0 16px' }}>
                 {puzzle?.question || 'What is the current Stacks block height?'}
               </p>
-              <p style={{ color: '#555', fontSize: 11, margin: 0 }}>Hot/warm/cold hints after your guess</p>
+              {puzzle?.hint && (
+                <p style={{ color: '#9945ff', fontSize: 11, margin: '6px 0 0', opacity: 0.8 }}>💡 {puzzle.hint}</p>
+              )}
+              <p style={{ color: '#555', fontSize: 11, margin: '6px 0 0' }}>Hot/warm/cold hints after your guess</p>
             </>
           )}
         </div>
@@ -288,8 +302,17 @@ export default function GamePage() {
           </div>
         )}
 
+        {/* Coming Soon for non-live chains */}
+        {!isChainLive && (
+          <div style={{ background: 'rgba(153,69,255,0.05)', border: '1px solid rgba(153,69,255,0.2)', borderRadius: 12, padding: 20, marginBottom: 16, textAlign: 'center' }}>
+            <p style={{ fontSize: 28, margin: '0 0 8px' }}>{currentChain.icon}</p>
+            <p style={{ color: currentChain.color, fontWeight: 700, fontSize: 16, margin: '0 0 6px' }}>{currentChain.label} — Coming Soon</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Contracts deploying. Stacks is live now.</p>
+          </div>
+        )}
+
         {/* Submit form */}
-        {!played && isConnected && (
+        {isChainLive && !played && isConnected && (
           <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <p style={{ color: '#555', fontSize: 11, margin: '0 0 16px', letterSpacing: '0.1em' }}>YOUR GUESS</p>
 
@@ -303,7 +326,7 @@ export default function GamePage() {
 
             <p style={{ color: '#555', fontSize: 11, margin: '0 0 8px', letterSpacing: '0.1em' }}>TOKEN & BET</p>
             <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-              {TOKENS.stacks.map(t => (
+              {chainTokens.map(t => (
                 <button
                   key={t.symbol}
                   onClick={() => setToken(t.symbol)}
@@ -355,7 +378,7 @@ export default function GamePage() {
         )}
 
         {/* Connect prompt */}
-        {!isConnected && (
+        {isChainLive && !isConnected && (
           <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 16 }}>
             <p style={{ color: '#555', marginBottom: 16 }}>Connect your Leather or Xverse wallet to play</p>
             <button
