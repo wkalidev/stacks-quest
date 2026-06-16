@@ -11,20 +11,20 @@ export const viewport: Viewport = {
   width:        'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor:   '#000000',
+  themeColor:   '#9945ff',
 }
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
 
   title: {
-    default:  'Stacks Quest — Daily On-Chain Puzzle Game',
+    default:  'Stacks Quest — Daily Blockchain Puzzle Game',
     template: '%s | Stacks Quest',
   },
 
   description:
-    'Guess real blockchain data from Stacks, bet $B2S tokens, earn NFT badges. ' +
-    'A new puzzle every day — powered by Clarity smart contracts on Stacks mainnet.',
+    'Guess real Stacks blockchain data, bet STX/sBTC/B2S, win from the daily reward pool. ' +
+    'Non-custodial DeFi agent included.',
 
   keywords: [
     'Stacks', 'blockchain', 'puzzle', 'game', 'B2S', 'NFT',
@@ -45,15 +45,15 @@ export const metadata: Metadata = {
   },
 
   openGraph: {
-    title:       'Stacks Quest — Daily On-Chain Puzzle Game',
-    description: 'Guess real blockchain data, bet $B2S tokens, earn NFT badges. New puzzle every day on Stacks mainnet.',
+    title:       'Stacks Quest',
+    description: 'Daily blockchain puzzle on Stacks Bitcoin L2',
     url:         BASE_URL,
     siteName:    'Stacks Quest',
     images: [{
-      url:    '/og-banner.png',
+      url:    '/og-banner.svg',
       width:  1200,
       height: 630,
-      alt:    'Stacks Quest — Daily On-Chain Puzzle Game',
+      alt:    'Stacks Quest — Daily Blockchain Puzzle Game',
     }],
     locale: 'en_US',
     type:   'website',
@@ -61,10 +61,10 @@ export const metadata: Metadata = {
 
   twitter: {
     card:        'summary_large_image',
-    title:       'Stacks Quest — Daily On-Chain Puzzle',
-    description: 'Guess real Stacks blockchain data. Bet $B2S. Earn NFT badges. New puzzle every day.',
+    title:       'Stacks Quest — Daily Blockchain Puzzle',
+    description: 'Guess real Stacks blockchain data, bet STX/sBTC/B2S, win from the daily reward pool.',
     creator:     '@willycodexwar',
-    images:      ['/og-banner.png'],
+    images:      ['/og-banner.svg'],
   },
 
   robots: {
@@ -81,6 +81,7 @@ export const metadata: Metadata = {
 
   other: {
     'talentapp:project_verification': '9939685310adea5849d1b4bacf031ca8f948ad9b7e0fc064a1dc44aa47a252c0369a56991ab715f157c9f49f622c709eb5ed6e06a7ebf76ee7da606d341a3ea8',
+    'theme-color':                           '#9945ff',
     'apple-mobile-web-app-capable':          'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
   },
