@@ -132,6 +132,8 @@ function findPool(tokenIn: string, tokenOut: string) {
   return null
 }
 
+const VALID_SWAP_TOKENS = new Set(Object.keys(TOKENS))
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const tokenIn  = searchParams.get('tokenIn')?.toUpperCase()
@@ -152,8 +154,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing amount param' }, { status: 400 })
   }
 
-  const inToken  = TOKENS[tokenIn]
-  const outToken = TOKENS[tokenOut]
+  if (!VALID_SWAP_TOKENS.has(tokenIn!) || !VALID_SWAP_TOKENS.has(tokenOut!)) {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
+  }
+
+  const parsedAmount = parseFloat(amount!)
+  if (isNaN(parsedAmount) || parsedAmount <= 0 || parsedAmount > 1000000) {
+    return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
+  }
+
+  const inToken  = TOKENS[tokenIn!]
+  const outToken = TOKENS[tokenOut!]
 
   if (!inToken || !outToken) {
     return NextResponse.json({
