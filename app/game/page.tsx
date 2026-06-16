@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react'
 import { useWallet } from '../../hooks/useWallet'
 import { useQuest } from '../../hooks/useQuest'
 import ChainSelector from '../../components/ChainSelector'
+import LangPicker from '../../components/LangPicker'
 import { CHAINS, ChainId } from '../lib/chains'
+import { useLang } from '../../hooks/useLang'
 import Link from 'next/link'
 
 export default function GamePage() {
   const { mounted, isConnected, address, connect } = useWallet()
   const { getTodayPuzzle, hasPlayedToday, getPlayerStats } = useQuest()
+  const { lang, setLang, t } = useLang()
 
   const [puzzle, setPuzzle]         = useState<any>(null)
   const [guess, setGuess]           = useState('')
@@ -193,16 +196,17 @@ export default function GamePage() {
   const isChainLive = !!currentChain.contracts.game
 
   return (
-    <main style={{ minHeight: '100vh', background: '#080810', color: '#fff', fontFamily: 'monospace', padding: '20px' }}>
+    <main style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0014 0%, #000a1f 50%, #0a0800 100%)', color: '#fff', fontFamily: "'Inter','Segoe UI',sans-serif", padding: '20px' }}>
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#9945ff', margin: 0 }}>Stacks Quest</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0, background: 'linear-gradient(90deg, #9945FF, #0052FF, #FCBA27, #35D07F)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Stacks Quest</h1>
             <p style={{ color: '#555', fontSize: 11, margin: '2px 0 0' }}>Daily Puzzle #{puzzleNumber}</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <LangPicker lang={lang} onChange={setLang} />
             <Link href="/agent" style={{ padding: '6px 12px', borderRadius: 6, background: 'rgba(153,69,255,0.1)', border: '1px solid rgba(153,69,255,0.3)', color: '#9945ff', fontSize: 11, textDecoration: 'none' }}>
               🤖 Agent
             </Link>
@@ -226,8 +230,8 @@ export default function GamePage() {
               { label: 'TOTAL PLAYS', value: stats.total || 0 },
               { label: 'WINS',        value: stats.wins || 0 },
             ].map(s => (
-              <div key={s.label} style={{ background: '#111', border: '1px solid #222', borderRadius: 8, padding: '10px 12px' }}>
-                <p style={{ color: '#444', fontSize: 9, margin: '0 0 2px', letterSpacing: '0.1em' }}>{s.label}</p>
+              <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '10px 12px' }}>
+                <p style={{ color: '#666', fontSize: 9, margin: '0 0 2px', letterSpacing: '0.1em' }}>{s.label}</p>
                 <p style={{ color: '#9945ff', fontSize: 16, fontWeight: 700, margin: 0 }}>{s.value}</p>
               </div>
             ))}
@@ -240,16 +244,16 @@ export default function GamePage() {
         </div>
 
         {/* Puzzle card */}
-        <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+        <div style={{ background: 'rgba(153,69,255,0.05)', border: '1px solid rgba(153,69,255,0.3)', borderLeft: '3px solid #9945FF', borderRadius: 12, padding: 20, marginBottom: 16 }}>
           {loading ? (
             <p style={{ color: '#444', fontSize: 13 }}>Loading today&apos;s puzzle...</p>
           ) : (
             <>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ background: 'rgba(153,69,255,0.15)', border: '1px solid rgba(153,69,255,0.3)', color: '#9945ff', fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700 }}>DAILY PUZZLE</span>
-                <span style={{ color: '#333', fontSize: 10 }}>1 guess per day</span>
+                <span style={{ background: 'rgba(153,69,255,0.15)', border: '1px solid rgba(153,69,255,0.3)', color: '#9945ff', fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700 }}>{t.dailyPuzzle}</span>
+                <span style={{ color: '#333', fontSize: 10 }}>{t.oneGuess}</span>
               </div>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.5, margin: '0 0 16px' }}>
+              <p style={{ fontSize: 18, fontWeight: 700, color: '#fff', lineHeight: 1.5, margin: '0 0 16px' }}>
                 {puzzle?.question || 'What is the current Stacks block height?'}
               </p>
               {puzzle?.hint && (
@@ -264,15 +268,15 @@ export default function GamePage() {
         {isConnected && !checkedInToday && (
           <div style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ color: '#ffd700', fontWeight: 700, margin: '0 0 2px', fontSize: 13 }}>🔥 Daily Check-in</p>
-              <p style={{ color: '#555', fontSize: 11, margin: 0 }}>0.001 STX · Build your streak · Earn bonus rewards</p>
+              <p style={{ color: '#ffd700', fontWeight: 700, margin: '0 0 2px', fontSize: 13 }}>🔥 {t.checkIn}</p>
+              <p style={{ color: '#555', fontSize: 11, margin: 0 }}>{t.checkInSub}</p>
             </div>
             <button
               onClick={handleCheckIn}
               disabled={checkingIn}
               style={{ padding: '8px 14px', background: '#ffd700', color: '#000', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: checkingIn ? 'wait' : 'pointer', fontFamily: 'monospace' }}
             >
-              {checkingIn ? '...' : 'Check In'}
+              {checkingIn ? '...' : t.checkInBtn}
             </button>
           </div>
         )}
@@ -281,7 +285,7 @@ export default function GamePage() {
         {played && txId && (
           <div style={{ background: 'rgba(0,255,159,0.05)', border: '1px solid rgba(0,255,159,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <p style={{ color: '#00ff9f', fontWeight: 700, margin: '0 0 8px' }}>
-              {result === 'hot' ? '🔥 HOT — Very close!' : result === 'warm' ? '🌡️ WARM — Getting there!' : '🧊 COLD — Try again tomorrow'}
+              {result === 'hot' ? t.hot : result === 'warm' ? t.warm : t.cold}
             </p>
             <p style={{ color: '#555', fontSize: 12, margin: '0 0 12px' }}>
               You&apos;ve played today. Come back tomorrow!
@@ -298,7 +302,7 @@ export default function GamePage() {
 
         {played && !txId && (
           <div style={{ background: 'rgba(153,69,255,0.05)', border: '1px solid rgba(153,69,255,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <p style={{ color: '#9945ff', margin: 0 }}>✓ Already played today. Come back tomorrow!</p>
+            <p style={{ color: '#9945ff', margin: 0 }}>✓ {t.alreadyPlayed}</p>
           </div>
         )}
 
@@ -313,8 +317,8 @@ export default function GamePage() {
 
         {/* Submit form */}
         {isChainLive && !played && isConnected && (
-          <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-            <p style={{ color: '#555', fontSize: 11, margin: '0 0 16px', letterSpacing: '0.1em' }}>YOUR GUESS</p>
+          <div style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+            <p style={{ color: '#555', fontSize: 11, margin: '0 0 16px', letterSpacing: '0.1em' }}>{t.yourGuess}</p>
 
             <input
               type="number"
@@ -324,7 +328,7 @@ export default function GamePage() {
               style={{ width: '100%', padding: '12px', background: '#080810', border: '1px solid #222', borderRadius: 8, color: '#fff', fontSize: 16, fontFamily: 'monospace', marginBottom: 12, boxSizing: 'border-box' }}
             />
 
-            <p style={{ color: '#555', fontSize: 11, margin: '0 0 8px', letterSpacing: '0.1em' }}>TOKEN & BET</p>
+            <p style={{ color: '#555', fontSize: 11, margin: '0 0 8px', letterSpacing: '0.1em' }}>{t.tokenBet}</p>
             <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
               {chainTokens.map(t => (
                 <button
@@ -347,9 +351,9 @@ export default function GamePage() {
                   onClick={() => setBet(v)}
                   style={{
                     flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'monospace',
-                    background: bet === v ? 'rgba(153,69,255,0.2)' : 'transparent',
+                    background: bet === v ? 'linear-gradient(90deg, #9945FF44, #0052FF44)' : 'transparent',
                     color: bet === v ? '#9945ff' : '#555',
-                    border: `1px solid ${bet === v ? 'rgba(153,69,255,0.4)' : '#222'}`,
+                    border: `1px solid ${bet === v ? '#9945FF' : '#222'}`,
                   }}
                 >{v} {token.symbol === 'SBTC' ? 'sBTC' : selectedToken}</button>
               ))}
@@ -361,14 +365,15 @@ export default function GamePage() {
               onClick={submitGuess}
               disabled={submitting || !guess}
               style={{
-                width: '100%', padding: '14px', borderRadius: 10, fontSize: 15, fontWeight: 900,
-                background: submitting || !guess ? '#1a1a2e' : '#9945ff',
+                width: '100%', padding: '16px', borderRadius: 12, fontSize: 16, fontWeight: 900,
+                background: submitting || !guess ? '#1a1a2e' : 'linear-gradient(90deg, #9945FF, #0052FF)',
                 color: submitting || !guess ? '#444' : '#fff',
                 border: 'none', cursor: submitting || !guess ? 'not-allowed' : 'pointer',
                 fontFamily: 'monospace', letterSpacing: '0.05em',
+                boxShadow: submitting || !guess ? 'none' : '0 4px 20px rgba(153,69,255,0.4)',
               }}
             >
-              {submitting ? 'Submitting...' : `▶ BET ${bet} ${selectedToken} & SUBMIT`}
+              {submitting ? t.submitting : `▶ ${bet} ${selectedToken} — ${t.submit}`}
             </button>
 
             <p style={{ color: '#333', fontSize: 10, textAlign: 'center', marginTop: 8 }}>
@@ -380,29 +385,29 @@ export default function GamePage() {
         {/* Connect prompt */}
         {isChainLive && !isConnected && (
           <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 16 }}>
-            <p style={{ color: '#555', marginBottom: 16 }}>Connect your Leather or Xverse wallet to play</p>
+            <p style={{ color: '#555', marginBottom: 16 }}>{t.connectPrompt}</p>
             <button
               onClick={connect}
-              style={{ padding: '12px 24px', borderRadius: 10, background: '#9945ff', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}
+              style={{ padding: '12px 24px', borderRadius: 10, background: 'linear-gradient(90deg, #9945FF, #0052FF)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'monospace', boxShadow: '0 4px 20px rgba(153,69,255,0.4)' }}
             >
-              Connect Wallet
+              {t.connect}
             </button>
           </div>
         )}
 
         {/* How it works */}
-        <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <p style={{ color: '#444', fontSize: 10, letterSpacing: '0.1em', margin: '0 0 12px' }}>HOW IT WORKS</p>
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <p style={{ color: '#555', fontSize: 10, letterSpacing: '0.1em', margin: '0 0 12px' }}>{t.howItWorks}</p>
           {[
-            ['1', 'Guess real Stacks blockchain data (block height, price, tx count)'],
-            ['2', 'Bet STX, $B2S, USDCx or sBTC (1-100 tokens)'],
-            ['3', 'Correct guesses win a share of the daily reward pool'],
-            ['4', 'Hot / warm / cold hints after your guess'],
-            ['5', 'Check in daily to build your streak and earn bonus rewards'],
-          ].map(([n, t]) => (
+            ['1', 'Guess real blockchain data (block height, price, tx count)', '#9945FF'],
+            ['2', 'Bet STX, $B2S, USDCx or sBTC (1-100 tokens)', '#0052FF'],
+            ['3', 'Correct guesses win a share of the daily reward pool', '#FCBA27'],
+            ['4', 'Hot / warm / cold hints after your guess', '#35D07F'],
+            ['5', 'Check in daily to build your streak and earn bonus rewards', '#9945FF'],
+          ].map(([n, t, c]) => (
             <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-              <span style={{ color: '#9945ff', fontWeight: 700, minWidth: 14 }}>{n}.</span>
-              <span style={{ color: '#666', fontSize: 12 }}>{t}</span>
+              <span style={{ color: c as string, fontWeight: 900, minWidth: 14, fontSize: 14 }}>{n}.</span>
+              <span style={{ color: '#888', fontSize: 12 }}>{t}</span>
             </div>
           ))}
         </div>

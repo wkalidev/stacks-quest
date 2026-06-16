@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useWallet } from '../../hooks/useWallet'
 import { SwapCard } from '../../components/SwapCard'
+import LangPicker from '../../components/LangPicker'
+import { useLang } from '../../hooks/useLang'
 
 const CONTRACT = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const AGENT_V3 = 'stacks-quest-agent-v3'
@@ -14,16 +16,6 @@ type Msg = { role: 'user' | 'assistant'; content: string; action?: any; ts?: str
 type Tab = 'chat' | 'portfolio' | 'streak' | 'withdraw'
 type Portfolio = Record<string, number>
 type Streak = { current: number; best: number; total: number }
-type Lang = 'EN' | 'FR' | 'ES' | 'ZH' | 'AR' | 'PT'
-
-const LANGS: Record<Lang, { placeholder: string; connect: string; send: string; ready: string; suggestions: string[] }> = {
-  EN: { placeholder: 'Enter command...', connect: 'CONNECT_WALLET', send: 'SEND', ready: 'STACKS_AGENT v3.0 INITIALIZED\nConnecting to Stacks mainnet...\nStatus: ONLINE\nNon-custodial DeFi assistant ready.', suggestions: ['Show my portfolio', 'Swap 10 STX for WELSH', 'Best staking options', 'Bridge from Base', 'Check my streak'] },
-  FR: { placeholder: 'Entrez une commande...', connect: 'CONNECTER', send: 'ENVOYER', ready: 'STACKS_AGENT v3.0 INITIALISÉ\nConnexion à Stacks mainnet...\nStatut: EN LIGNE\nAssistant DeFi non-custodial prêt.', suggestions: ['Mon portefeuille', 'Swap 10 STX en WELSH', 'Meilleures options de staking', 'Bridge depuis Base', 'Mon streak'] },
-  ES: { placeholder: 'Ingrese comando...', connect: 'CONECTAR', send: 'ENVIAR', ready: 'STACKS_AGENT v3.0 INICIALIZADO\nConectando a Stacks mainnet...\nEstado: EN LÍNEA\nAsistente DeFi no-custodial listo.', suggestions: ['Mi portfolio', 'Swap 10 STX por WELSH', 'Mejores opciones staking', 'Bridge desde Base', 'Mi racha'] },
-  ZH: { placeholder: '输入命令...', connect: '连接钱包', send: '发送', ready: 'STACKS_AGENT v3.0 已初始化\n连接到 Stacks 主网...\n状态: 在线\n非托管 DeFi 助手就绪。', suggestions: ['查看我的投资组合', '用10 STX换WELSH', '最佳质押选项', '从Base跨链', '查看连续打卡'] },
-  AR: { placeholder: 'أدخل أمراً...', connect: 'ربط المحفظة', send: 'إرسال', ready: 'STACKS_AGENT v3.0 تم التهيئة\nجاري الاتصال بـ Stacks mainnet...\nالحالة: متصل\nمساعد DeFi غير حضاني جاهز.', suggestions: ['عرض محفظتي', 'تبادل 10 STX مقابل WELSH', 'أفضل خيارات التحصيص', 'جسر من Base', 'تحقق من سلسلتي'] },
-  PT: { placeholder: 'Digite um comando...', connect: 'CONECTAR', send: 'ENVIAR', ready: 'STACKS_AGENT v3.0 INICIALIZADO\nConectando ao Stacks mainnet...\nStatus: ONLINE\nAssistente DeFi não-custodial pronto.', suggestions: ['Meu portfólio', 'Trocar 10 STX por WELSH', 'Melhores opções de staking', 'Bridge do Base', 'Minha sequência'] },
-}
 
 const QUICK_ACTIONS = [
   { id: 'portfolio',  label: 'PORTFOLIO',    icon: '◈', color: '#00d4ff', cmd: 'Show my portfolio' },
@@ -35,9 +27,9 @@ const QUICK_ACTIONS = [
 ]
 
 const STAKING_OPTIONS = [
-  { name: '$B2S Vault v2',    apy: '37.5%', lock: '365d', risk: 'LOW',  protocol: 'Base2Stacks', color: '#00ff9f' },
-  { name: '$B2S Vault v2',    apy: '25%',   lock: '70d',  risk: 'LOW',  protocol: 'Base2Stacks', color: '#00ff9f' },
-  { name: '$B2S Vault v2',    apy: '12.5%', lock: 'None', risk: 'LOW',  protocol: 'Base2Stacks', color: '#00ff9f' },
+  { name: '$B2S Vault v2',    apy: '37.5%', lock: '365d', risk: 'LOW',  protocol: 'Base2Stacks', color: '#35D07F' },
+  { name: '$B2S Vault v2',    apy: '25%',   lock: '70d',  risk: 'LOW',  protocol: 'Base2Stacks', color: '#FCBA27' },
+  { name: '$B2S Vault v2',    apy: '12.5%', lock: 'None', risk: 'LOW',  protocol: 'Base2Stacks', color: '#9945FF' },
   { name: 'STX Stacking',     apy: '~8%',   lock: '2w',   risk: 'LOW',  protocol: 'Proof of Transfer', color: '#9945ff' },
   { name: 'STX/WELSH LP',     apy: 'var.',  lock: 'None', risk: 'MED',  protocol: 'Velar DEX', color: '#ff6b9d' },
   { name: 'STX/aeUSDC LP',    apy: 'var.',  lock: 'None', risk: 'LOW',  protocol: 'Velar DEX', color: '#2775ca' },
@@ -110,6 +102,7 @@ async function callContract(name: string, fn: string, args: any[], onFinish: (tx
 
 export default function AgentTerminal() {
   const { mounted, isConnected, address, connect, disconnect } = useWallet()
+  const { lang, setLang, t: L } = useLang()
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -123,14 +116,12 @@ export default function AgentTerminal() {
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawTx, setWithdrawTx] = useState<string | null>(null)
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null)
-  const [lang, setLang] = useState<Lang>('EN')
   const [block, setBlock] = useState(0)
   const [stxPrice, setStxPrice] = useState(0)
   const [networkLatency, setNetworkLatency] = useState(0)
   const [showStaking, setShowStaking] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const L = LANGS[lang]
   const short = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`
 
   // Fetch network stats
@@ -206,7 +197,7 @@ export default function AgentTerminal() {
     const userMsg: Msg = { role: 'user', content: msg, ts: new Date().toLocaleTimeString('en', { hour12: false }) }
     setMsgs(m => [...m, userMsg]); setInput(''); setLoading(true)
     try {
-      const systemLang = lang !== 'EN' ? `\nIMPORTANT: Respond in ${lang === 'FR' ? 'French' : lang === 'ES' ? 'Spanish' : lang === 'ZH' ? 'Chinese' : lang === 'AR' ? 'Arabic' : 'Portuguese'}.` : ''
+      const systemLang = lang !== 'EN' ? `\nIMPORTANT: Respond in the language with code ${lang}.` : ''
       const res = await fetch('/api/agent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [...msgs, userMsg].map(m => ({ role: m.role, content: m.content })), address, systemExtra: systemLang }),
@@ -254,30 +245,22 @@ export default function AgentTerminal() {
     <div style={{ fontFamily: MONO, minHeight: '100dvh', background: '#030407', color: '#e0e0e0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── TOP STATUS BAR ── */}
-      <div style={{ background: '#0a0d12', borderBottom: '1px solid #1a2030', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', fontSize: 9, letterSpacing: '0.15em' }}>
+      <div style={{ background: 'linear-gradient(90deg, rgba(153,69,255,0.15), rgba(0,82,255,0.15), rgba(252,186,39,0.1))', borderBottom: '1px solid rgba(153,69,255,0.3)', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', fontSize: 9, letterSpacing: '0.15em' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(0,255,159,0.15)', border: '1px solid rgba(0,255,159,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>⬡</div>
-          <span style={{ color: '#00ff9f', fontWeight: 700, letterSpacing: '0.2em' }}>STACKS_AGENT</span>
+          <span style={{ fontWeight: 700, letterSpacing: '0.2em', background: 'linear-gradient(90deg, #9945FF, #0052FF, #FCBA27, #35D07F)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>STACKS_AGENT</span>
           <span style={{ color: '#334' }}>v3.0</span>
         </div>
         <div style={{ width: 1, height: 12, background: '#1a2030' }} />
-        <span style={{ color: '#00ff9f' }}>STX/USD <span style={{ color: '#ffd700', fontWeight: 700 }}>${stxPrice.toFixed(4)}</span></span>
+        <span style={{ color: '#667' }}>STX/USD <span style={{ color: '#35D07F', fontWeight: 700 }}>${stxPrice.toFixed(4)}</span></span>
         <div style={{ width: 1, height: 12, background: '#1a2030' }} />
         <span style={{ color: '#556' }}>GAS: <span style={{ color: '#00ff9f' }}>&lt;$0.001</span></span>
         <div style={{ width: 1, height: 12, background: '#1a2030' }} />
         <span style={{ color: '#556' }}>NET: <span style={{ color: '#9945ff' }}>STACKS</span></span>
         <div style={{ width: 1, height: 12, background: '#1a2030' }} />
-        <span style={{ color: '#556' }}>BLOCK: <span style={{ color: '#00d4ff' }}>#{block.toLocaleString()}</span></span>
+        <span style={{ color: '#556' }}>BLOCK: <span style={{ color: '#FCBA27' }}>#{block.toLocaleString()}</span></span>
         <div style={{ flex: 1 }} />
-        {/* Language selector */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(Object.keys(LANGS) as Lang[]).map(l => (
-            <button key={l} onClick={() => setLang(l)}
-              style={{ padding: '2px 6px', borderRadius: 3, fontSize: 8, fontFamily: MONO, cursor: 'pointer', letterSpacing: '0.1em', background: lang === l ? 'rgba(0,255,159,0.15)' : 'transparent', border: lang === l ? '1px solid rgba(0,255,159,0.4)' : '1px solid transparent', color: lang === l ? '#00ff9f' : '#445' }}>
-              {l}
-            </button>
-          ))}
-        </div>
+        <LangPicker lang={lang} onChange={setLang} mono />
         <Link href="/game" style={{ fontSize: 10, color: '#555', textDecoration: 'none', padding: '4px 8px', border: '1px solid #222', borderRadius: 4 }}>
           ← Game
         </Link>
@@ -292,14 +275,14 @@ export default function AgentTerminal() {
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '180px 1fr 200px', overflow: 'hidden', minHeight: 0 }}>
 
         {/* ── LEFT: QUICK ACTIONS ── */}
-        <div style={{ background: '#070a0f', borderRight: '1px solid #1a2030', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ background: 'rgba(153,69,255,0.05)', borderRight: '1px solid rgba(153,69,255,0.15)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '10px 12px 6px', fontSize: 8, color: '#334', letterSpacing: '0.2em' }}>// QUICK_ACTIONS</div>
 
           {QUICK_ACTIONS.map(a => (
             <button key={a.id} onClick={() => { send(a.cmd); setShowStaking(a.id === 'stake') }}
-              style={{ padding: '8px 12px', fontSize: 9, fontFamily: MONO, letterSpacing: '0.12em', cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '1px solid #0d1118', color: '#667', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.1s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${a.color}10`; (e.currentTarget as HTMLElement).style.color = a.color }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#667' }}>
+              style={{ padding: '8px 12px', fontSize: 9, fontFamily: MONO, letterSpacing: '0.12em', cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(153,69,255,0.08)', borderLeft: '3px solid transparent', color: '#667', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${a.color}15`; (e.currentTarget as HTMLElement).style.color = a.color; (e.currentTarget as HTMLElement).style.borderLeft = `3px solid ${a.color}` }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#667'; (e.currentTarget as HTMLElement).style.borderLeft = '3px solid transparent' }}>
               <span style={{ width: 14, textAlign: 'center', opacity: 0.7 }}>{a.icon}</span>
               {a.label}
             </button>
@@ -341,7 +324,7 @@ export default function AgentTerminal() {
             <div style={{ padding: '6px 14px', fontSize: 8, color: '#445', letterSpacing: '0.2em', borderRight: '1px solid #1a2030' }}>TERMINAL://stacks/agent</div>
             {(['chat', 'portfolio', 'streak', 'withdraw'] as Tab[]).map(t => (
               <button key={t} onClick={() => setTab(t)}
-                style={{ padding: '6px 14px', fontSize: 8, letterSpacing: '0.15em', fontFamily: MONO, cursor: 'pointer', background: 'none', border: 'none', borderBottom: tab === t ? '1px solid #00ff9f' : '1px solid transparent', color: tab === t ? '#00ff9f' : '#445', textTransform: 'uppercase' }}>
+                style={{ padding: '6px 14px', fontSize: 8, letterSpacing: '0.15em', fontFamily: MONO, cursor: 'pointer', background: 'none', border: 'none', borderBottom: tab === t ? '2px solid #9945FF' : '2px solid transparent', color: tab === t ? '#9945FF' : '#445', textTransform: 'uppercase' }}>
                 {t === 'withdraw' ? '⬆ OUT' : t}
               </button>
             ))}
@@ -363,14 +346,14 @@ export default function AgentTerminal() {
                       </div>
                     ))}
                     <div style={{ marginTop: 12, fontSize: 10, color: '#556' }}>
-                      {lang === 'FR' ? 'Sélectionnez une action ou entrez une commande.' : lang === 'ES' ? 'Seleccione una acción o ingrese un comando.' : lang === 'ZH' ? '选择一个操作或输入命令。' : 'Select an action or enter a command.'}
+                      {L.selectAction}
                     </div>
                     <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {L.suggestions.map(s => (
                         <button key={s} onClick={() => send(s)}
-                          style={{ fontSize: 8, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.1em', fontFamily: MONO, cursor: 'pointer', background: 'rgba(255,255,255,0.03)', border: '1px solid #1a2030', color: '#445' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#00ff9f'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,255,159,0.3)' }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#445'; (e.currentTarget as HTMLElement).style.borderColor = '#1a2030' }}>
+                          style={{ fontSize: 8, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.1em', fontFamily: MONO, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(153,69,255,0.4)', color: '#9945FF' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(153,69,255,0.1)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
                           {s}
                         </button>
                       ))}
@@ -383,7 +366,7 @@ export default function AgentTerminal() {
                     <div style={{ fontSize: 7, color: '#334', letterSpacing: '0.15em', marginBottom: 3 }}>
                       {m.role === 'user' ? (isConnected ? short(address!) : 'USER') : 'STACKS_AGENT'} · {m.ts}
                     </div>
-                    <div style={{ maxWidth: '85%', padding: '10px 12px', borderRadius: 6, background: m.role === 'user' ? 'rgba(255,255,255,0.04)' : 'rgba(0,255,159,0.03)', border: m.role === 'user' ? '1px solid #1a2030' : '1px solid rgba(0,255,159,0.1)' }}>
+                    <div style={{ maxWidth: '85%', padding: '10px 12px', borderRadius: 6, background: m.role === 'user' ? 'linear-gradient(135deg, rgba(153,69,255,0.15), rgba(0,82,255,0.1))' : 'rgba(255,255,255,0.03)', border: m.role === 'user' ? '1px solid rgba(153,69,255,0.3)' : '1px solid rgba(255,255,255,0.08)' }}>
                       {m.role === 'assistant' && (
                         <div style={{ fontSize: 8, color: 'rgba(0,255,159,0.4)', marginBottom: 4, letterSpacing: '0.15em' }}>{'> '}</div>
                       )}
@@ -519,13 +502,16 @@ export default function AgentTerminal() {
           {[
             { label: 'CHAIN',    value: 'STACKS',  color: '#9945ff' },
             { label: 'LAYER',    value: 'BITCOIN L2', color: '#f7931a' },
-            { label: 'RPC',      value: 'ONLINE',  color: '#00ff9f' },
-            { label: 'LATENCY',  value: `${networkLatency}ms`, color: networkLatency < 200 ? '#00ff9f' : '#ffd700' },
-            { label: 'BLOCK',    value: `#${block.toLocaleString()}`, color: '#00d4ff' },
+            { label: 'RPC',      value: 'ONLINE',  color: '#35D07F', pulse: true },
+            { label: 'LATENCY',  value: `${networkLatency}ms`, color: networkLatency < 200 ? '#35D07F' : '#ffd700' },
+            { label: 'BLOCK',    value: `#${block.toLocaleString()}`, color: '#FCBA27' },
           ].map(s => (
             <div key={s.label} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #0d1118' }}>
               <div style={{ fontSize: 7, color: '#334', letterSpacing: '0.15em', marginBottom: 2 }}>{s.label}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: s.color, letterSpacing: '0.1em' }}>{s.value}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: s.color, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                {(s as any).pulse && <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: '#35D07F', display: 'inline-block' }} />}
+                {s.value}
+              </div>
             </div>
           ))}
 
@@ -565,6 +551,8 @@ export default function AgentTerminal() {
 
       <style>{`
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+        .pulse-dot { animation: pulse 2s ease-in-out infinite; }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #070a0f; }
