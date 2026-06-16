@@ -1,12 +1,15 @@
 {
-  "name": "Stacks Quest",
-  "short_name": "SQ",
-  "description": "Daily on-chain puzzle game on Stacks",
+  "name": "Stacks Quest — Daily Blockchain Puzzle",
+  "short_name": "StacksQuest",
+  "description": "Daily puzzle game and DeFi agent on Stacks Bitcoin L2. Bet, solve, earn.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0a0a0a",
+  "theme_color": "#5546ff",
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Play Today", "url": "/agent", "description": "Open the agent and puzzle" }
   ]
 }

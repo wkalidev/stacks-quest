@@ -48,6 +48,30 @@ const TOKEN_COLOR: Record<string, string> = {
   VELAR: '#00ff9f', LEO: '#ffd700',
 }
 
+function generateShareText(guessResult: 'hot' | 'warm' | 'cold', streakDays: number, puzzleNumber: number): string {
+  const emoji = { hot: '🔥', warm: '🌡️', cold: '🧊' }[guessResult]
+  return `${emoji} Stacks Quest Daily #${puzzleNumber}\n🔥 Streak: ${streakDays} days\n👉 stacks-quest-ten.vercel.app\n#StacksQuest #Bitcoin #Stacks`
+}
+
+function SharePuzzle({ streakDays }: { streakDays: number }) {
+  const puzzleNumber = Math.floor(Date.now() / 86400000)
+  return (
+    <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+      {(['hot', 'warm', 'cold'] as const).map(result => {
+        const text     = generateShareText(result, streakDays, puzzleNumber)
+        const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`
+        const emoji    = { hot: '🔥', warm: '🌡️', cold: '🧊' }[result]
+        return (
+          <a key={result} href={shareUrl} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 8, padding: '4px 10px', borderRadius: 4, letterSpacing: '0.1em', fontFamily: 'inherit', cursor: 'pointer', background: 'rgba(85,70,255,0.1)', border: '1px solid rgba(85,70,255,0.3)', color: '#8b7fff', textDecoration: 'none' }}>
+            {emoji} SHARE {result.toUpperCase()}
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
 function ActionCard({ action, address }: { action: any; address: string | null }) {
   if (!action?.type) return null
   if (action.type === 'swap') return <SwapCard action={action} address={address} />
@@ -361,6 +385,9 @@ export default function AgentTerminal() {
                       )}
                       <div style={{ fontSize: 11, color: m.role === 'user' ? '#889' : '#aab', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{m.content}</div>
                       {m.action && <ActionCard action={m.action} address={address} />}
+                      {m.role === 'assistant' && /\b(hot|warm|cold)\b/i.test(m.content) && (
+                        <SharePuzzle streakDays={streak.current} />
+                      )}
                     </div>
                   </div>
                 ))}
