@@ -4,7 +4,6 @@
   "description": "Universal SDK for Stacks Quest multichain puzzle game",
   "main": "./sdk/index.js",
   "types": "./sdk/index.d.ts",
-  "private": true,
   "scripts": {
     "build:sdk": "tsc -p sdk-src/tsconfig.json",
     "dev": "next dev",
@@ -22,10 +21,13 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.6.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "hardhat": "^2.28.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
