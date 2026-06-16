@@ -1,7 +1,13 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  poweredByHeader: false,
+  compress: true,
+  async rewrites() {
+    return [
+      { source: '/.well-known/agent-card.json', destination: '/api/agent-card' },
+    ]
+  },
+}
 
-export default nextConfig;
+export default nextConfig

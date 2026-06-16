@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { principalCV, serializeCV } from '@stacks/transactions'
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const CONTRACT_NAME    = process.env.NEXT_PUBLIC_CONTRACT_NAME    || 'stacks-quest-v2'
@@ -39,10 +40,13 @@ export function useQuest() {
   return { getTodayPuzzle, getPlayerStats, hasPlayedToday, loading, error, txId }
 }
 
-// Encode un principal en hex pour l'API read-only
+// Serialize a principal as a hex-encoded Clarity CV for the Hiro read-only API
 function principalToHex(addr: string): string {
-  // Format attendu par l'API Hiro: "0x" + CV serialise
-  // Pour un principal standard: type byte 0x05 + hash160
-  // On passe le principal en string directement — l'API accepte aussi ce format
-  return addr
+  try {
+    const hex = serializeCV(principalCV(addr))
+    // serializeCV returns a hex string without 0x prefix in @stacks/transactions v7
+    return hex.startsWith('0x') ? hex : `0x${hex}`
+  } catch {
+    return addr
+  }
 }
