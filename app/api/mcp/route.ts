@@ -1,0 +1,271 @@
+import { NextRequest, NextResponse } from 'next/server'
+
+const APP_URL  = 'https://stacks-quest-ten.vercel.app'
+const CONTRACT = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
+
+const TOOLS = [
+  {
+    name:        'get_daily_puzzle',
+    description: "Get today's Stacks Quest daily puzzle: question, token pools, and how to participate.",
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name:        'get_player_stats',
+    description: "Get a player's stats: streak, total guesses, wins, lifetime earnings.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        address: { type: 'string', description: 'Stacks wallet address (SP...)' },
+      },
+      required: ['address'],
+    },
+  },
+  {
+    name:        'get_agent_info',
+    description: 'Get Stacks Quest Agent capabilities: supported commands, DEX routing, tokens.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name:        'get_staking_options',
+    description: 'Get best staking options on Stacks: $B2S vault APY, STX stacking, LP yields.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name:        'get_swap_routes',
+    description: 'Get swap routing info for Stacks tokens via Velar and Alex DEX.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tokenIn:  { type: 'string', description: 'Input token (STX, B2S, USDCx, sBTC, ALEX, WELSH)' },
+        tokenOut: { type: 'string', description: 'Output token' },
+      },
+      required: ['tokenIn', 'tokenOut'],
+    },
+  },
+  {
+    name:        'get_checkin_info',
+    description: 'Get daily check-in info: cost, current streak rewards, contract address.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name:        'get_network_stats',
+    description: 'Get live Stacks network stats via Hiro API: block height, STX price, mempool.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+]
+
+export async function GET() {
+  return NextResponse.json({
+    name:     'Stacks Quest MCP Server',
+    version:  '0.2.0',
+    protocol: 'MCP 2024-11-05',
+    tools:    TOOLS.map(t => ({ name: t.name, description: t.description })),
+    status:   'healthy',
+    endpoint: `${APP_URL}/api/mcp`,
+  })
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Bad request' }, { status: 400 })
+    }
+
+    const { method, params, id } = body
+
+    if (method === 'initialize') {
+      return NextResponse.json({
+        jsonrpc: '2.0', id,
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities:    { tools: {} },
+          serverInfo:      { name: 'stacks-quest-mcp', version: '0.2.0' },
+        },
+      })
+    }
+
+    if (method === 'tools/list') {
+      return NextResponse.json({ jsonrpc: '2.0', id, result: { tools: TOOLS } })
+    }
+
+    if (method === 'tools/call') {
+      const { name, arguments: args } = params
+
+      if (name === 'get_daily_puzzle') {
+        const puzzleNumber = Math.floor(Date.now() / 86400000)
+        return NextResponse.json({
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                puzzle_number: puzzleNumber,
+                contract:      `${CONTRACT}.stacks-quest-v2`,
+                token_pools:   ['STX', '$B2S', 'USDCx', 'sBTC'],
+                bet_range:     { min: '1 STX / 1 B2S / 1 USDCx / 0.00001 sBTC', max: '100 STX / 100 B2S / 100 USDCx / 0.001 sBTC' },
+                guess_limit:   '1 per player per day',
+                hint_system:   'hot / warm / cold after each guess',
+                app:           `${APP_URL}/agent`,
+              }, null, 2),
+            }],
+          },
+        })
+      }
+
+      if (name === 'get_player_stats') {
+        const { address } = args || {}
+        if (!address || !/^SP[A-Z0-9]+$/.test(address)) {
+          return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid Stacks address' } })
+        }
+        try {
+          const res  = await fetch(
+            `https://api.mainnet.hiro.so/v2/contracts/call-read/${CONTRACT}/stacks-quest-agent-v3/get-user-stats`,
+            {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ sender: address, arguments: [address] }),
+            },
+          )
+          const data = res.ok ? await res.json() : {}
+          return NextResponse.json({
+            jsonrpc: '2.0', id,
+            result: {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({ address, on_chain_data: data, app: `${APP_URL}/agent` }, null, 2),
+              }],
+            },
+          })
+        } catch {
+          return NextResponse.json({
+            jsonrpc: '2.0', id,
+            result: {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({ address, note: 'Could not fetch on-chain data. Visit the app to see your stats.', app: `${APP_URL}/agent` }),
+              }],
+            },
+          })
+        }
+      }
+
+      if (name === 'get_agent_info') {
+        return NextResponse.json({
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                model:        'llama-3.3-70b-versatile (Groq)',
+                languages:    ['EN', 'FR', 'ES', 'ZH', 'AR', 'PT'],
+                capabilities: ['portfolio', 'swap', 'bridge', 'checkin', 'staking_info', 'defi_education'],
+                dex_routing: {
+                  'STX/B2S':   'Velar DEX',
+                  'STX/USDCx': 'Velar DEX',
+                  'STX/sBTC':  'Alex DEX',
+                  'STX/ALEX':  'Alex DEX',
+                },
+                bridge:   'Base2Stacks (base2stacks-tracker.vercel.app)',
+                security: 'Non-custodial — user always signs their own transactions',
+                app:      `${APP_URL}/agent`,
+              }, null, 2),
+            }],
+          },
+        })
+      }
+
+      if (name === 'get_staking_options') {
+        return NextResponse.json({
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                options: [
+                  { name: '$B2S Vault v2', apy: '37.5%', lock: '365 days', risk: 'LOW',    protocol: 'Base2Stacks' },
+                  { name: '$B2S Vault v2', apy: '25%',   lock: '70 days',  risk: 'LOW',    protocol: 'Base2Stacks' },
+                  { name: '$B2S Vault v2', apy: '12.5%', lock: 'None',     risk: 'LOW',    protocol: 'Base2Stacks' },
+                  { name: 'STX Stacking',  apy: '~8%',   lock: '2 weeks',  risk: 'LOW',    protocol: 'Proof of Transfer' },
+                  { name: 'STX/WELSH LP',  apy: 'variable', lock: 'None',  risk: 'MEDIUM', protocol: 'Velar DEX' },
+                ],
+                app: 'https://base2stacks-tracker.vercel.app/#staking',
+              }, null, 2),
+            }],
+          },
+        })
+      }
+
+      if (name === 'get_swap_routes') {
+        const VALID_TOKENS = ['STX', 'B2S', 'USDCx', 'sBTC', 'ALEX', 'WELSH']
+        const { tokenIn, tokenOut } = args || {}
+        if (!VALID_TOKENS.includes(tokenIn) || !VALID_TOKENS.includes(tokenOut)) {
+          return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid token' } })
+        }
+        const velarPairs = [['STX','B2S'],['STX','USDCx'],['STX','WELSH']]
+        const alexPairs  = [['STX','sBTC'],['STX','ALEX']]
+        const isVelar    = velarPairs.some(([a, b]) => (tokenIn === a && tokenOut === b) || (tokenIn === b && tokenOut === a))
+        const isAlex     = alexPairs.some(([a, b])  => (tokenIn === a && tokenOut === b) || (tokenIn === b && tokenOut === a))
+        return NextResponse.json({
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                pair:            `${tokenIn}/${tokenOut}`,
+                recommended_dex: isVelar ? 'Velar DEX' : isAlex ? 'Alex DEX' : 'No direct route — consider multi-hop',
+                app:             `${APP_URL}/agent`,
+              }, null, 2),
+            }],
+          },
+        })
+      }
+
+      if (name === 'get_checkin_info') {
+        return NextResponse.json({
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                cost:           '0.001 STX',
+                streak_bonuses: { '7 days': '+0.002 STX', '30 days': '+0.01 STX', '100 days': '+0.05 STX' },
+                contract:       `${CONTRACT}.stacks-quest-agent-v3`,
+                app:            `${APP_URL}/agent`,
+              }, null, 2),
+            }],
+          },
+        })
+      }
+
+      if (name === 'get_network_stats') {
+        try {
+          const res  = await fetch('https://api.mainnet.hiro.so/v2/info', { next: { revalidate: 30 } })
+          const data = res.ok ? await res.json() : {}
+          return NextResponse.json({
+            jsonrpc: '2.0', id,
+            result: { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] },
+          })
+        } catch {
+          return NextResponse.json({
+            jsonrpc: '2.0', id,
+            result: { content: [{ type: 'text', text: '{"error":"Could not fetch network stats"}' }] },
+          })
+        }
+      }
+
+      return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32601, message: `Tool not found: ${name}` } })
+    }
+
+    if (method === 'ping') {
+      return NextResponse.json({ jsonrpc: '2.0', id, result: {} })
+    }
+
+    return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } })
+  } catch {
+    return NextResponse.json(
+      { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } },
+      { status: 400 },
+    )
+  }
+}

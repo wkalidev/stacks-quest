@@ -1,0 +1,32 @@
+import { NextResponse } from 'next/server'
+
+const card = {
+  name:        'Stacks Quest Agent',
+  description: 'Daily blockchain puzzle game + non-custodial DeFi agent on Stacks Bitcoin L2. Swap via Velar/Alex, bridge Base to Stacks, daily check-in with streak rewards.',
+  url:         'https://stacks-quest-ten.vercel.app',
+  version:     '0.2.0',
+  skills: [
+    { id: 'daily_puzzle',  name: 'Daily Puzzle',   description: 'Guess real Stacks blockchain data, bet tokens, win reward pool' },
+    { id: 'swap',          name: 'Token Swap',      description: 'Route swaps via Velar DEX (STX/B2S/USDCx) and Alex DEX (STX/sBTC/ALEX)' },
+    { id: 'bridge',        name: 'Cross-chain Bridge', description: 'Bridge Base Network to Stacks via Base2Stacks' },
+    { id: 'checkin',       name: 'Daily Check-in',  description: '0.001 STX fee, builds streak, bonus rewards at 7/30/100 days' },
+    { id: 'portfolio',     name: 'Portfolio',        description: 'Real-time balances for STX, sBTC, $B2S, USDCx, ALEX, WELSH' },
+    { id: 'staking_info',  name: 'Staking Info',    description: 'Best staking options on Stacks with APY and risk data' },
+  ],
+  x402: { supported: false },
+  mcp:  'https://stacks-quest-ten.vercel.app/api/mcp',
+  oasf: {
+    skills:  ['tool_interaction', 'natural_language_processing', 'analytical_skills'],
+    domains: ['technology/blockchain', 'technology/blockchain/defi', 'gaming'],
+  },
+}
+
+export async function GET() {
+  return NextResponse.json(card, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type':                'application/json',
+      'Cache-Control':               'public, max-age=3600',
+    },
+  })
+}
