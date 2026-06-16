@@ -129,12 +129,12 @@ export class StacksQuestSDK {
         checkIn: `${this.DEFAULTS.stacksContract}.stacks-quest-agent-v3`,
       },
       base: {
-        game:    this.opts.contracts?.baseGame    || '',
-        checkIn: this.opts.contracts?.baseCheckIn || '',
+        game:    this.opts.contracts?.baseGame    || '0xE355F73B188713f60F42552d942383303EDE313f',
+        checkIn: this.opts.contracts?.baseCheckIn || '0x63529080bb946ED0611c4DC6521a9CcC7579b2FB',
       },
       celo: {
-        game:    this.opts.contracts?.celoGame    || '',
-        checkIn: this.opts.contracts?.celoCheckIn || '',
+        game:    this.opts.contracts?.celoGame    || '0x23B7ac7a7171322B1DAF1c8887e47e0C0c181735',
+        checkIn: this.opts.contracts?.celoCheckIn || '0x21ad9DDFB07d67c46d0949d887394c70be145775',
       },
     }
     return map[chain]
