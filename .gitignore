@@ -20,6 +20,9 @@
 # production
 /build
 
+# sdk build output
+/sdk
+
 # misc
 .DS_Store
 *.pem
