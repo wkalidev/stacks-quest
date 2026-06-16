@@ -160,4 +160,4 @@ npm run dev
 
 ---
 
-**Built by [wkalidev (zcodebase)](https://github.com/wkalidev) for Stacks Builder Rewards May 2026**
+**Built by [wkalidev (zcodebase)](https://github.com/wkalidev) for Stacks Builder Rewards 2026**
