@@ -197,10 +197,9 @@ export default function AgentTerminal() {
     const userMsg: Msg = { role: 'user', content: msg, ts: new Date().toLocaleTimeString('en', { hour12: false }) }
     setMsgs(m => [...m, userMsg]); setInput(''); setLoading(true)
     try {
-      const systemLang = lang !== 'EN' ? `\nIMPORTANT: Respond in the language with code ${lang}.` : ''
       const res = await fetch('/api/agent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...msgs, userMsg].map(m => ({ role: m.role, content: m.content })), address, systemExtra: systemLang }),
+        body: JSON.stringify({ messages: [...msgs, userMsg].map(m => ({ role: m.role, content: m.content })), address, lang }),
       })
       const data = await res.json()
       setMsgs(m => [...m, { role: 'assistant', content: data.content || '...', action: data.action, ts: new Date().toLocaleTimeString('en', { hour12: false }) }])
@@ -338,7 +337,7 @@ export default function AgentTerminal() {
                 {/* Boot message */}
                 {msgs.length === 0 && (
                   <div style={{ marginBottom: 16, padding: '14px', borderRadius: 6, background: 'rgba(0,255,159,0.03)', border: '1px solid #1a2030' }}>
-                    <div style={{ fontSize: 8, color: '#445', letterSpacing: '0.2em', marginBottom: 8 }}>CELOBANK_AI · {new Date().toLocaleTimeString('en', { hour12: false })}</div>
+                    <div style={{ fontSize: 8, color: '#445', letterSpacing: '0.2em', marginBottom: 8 }}>STACKS_QUEST · {new Date().toLocaleTimeString('en', { hour12: false })}</div>
                     {L.ready.split('\n').map((line, i) => (
                       <div key={i} style={{ fontSize: 11, color: i === 0 ? '#00ff9f' : i === 2 ? '#00ff9f' : '#667', lineHeight: 1.8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {i === 2 && <div style={{ width: 60, height: 4, background: '#00ff9f', borderRadius: 2, opacity: 0.8 }} />}
@@ -515,9 +514,8 @@ export default function AgentTerminal() {
             </div>
           ))}
 
-          <div style={{ fontSize: 8, color: '#334', letterSpacing: '0.2em', marginBottom: 8, marginTop: 4 }}>// AI_MODEL</div>
-          <div style={{ fontSize: 8, color: '#556', marginBottom: 4 }}>GROQ_LLAMA3.3</div>
-          <div style={{ fontSize: 8, color: '#556', marginBottom: 4 }}>70B_VERSATILE</div>
+          <div style={{ fontSize: 8, color: '#334', letterSpacing: '0.2em', marginBottom: 8, marginTop: 4 }}>// ENGINE</div>
+          <div style={{ fontSize: 8, color: '#556', marginBottom: 4 }}>INFERENCE: ACTIVE</div>
           <div style={{ fontSize: 8, color: '#556', marginBottom: 4 }}>TOOLS: ACTIVE</div>
 
           <div style={{ fontSize: 8, color: '#334', letterSpacing: '0.2em', marginBottom: 8, marginTop: 10 }}>// SELF_AGENT</div>
@@ -544,7 +542,7 @@ export default function AgentTerminal() {
         <span>ENCRYPTED // TLS 1.3</span>
         <span>GAS: ~0.003 STX</span>
         <span>STACKS_MAINNET · #{block}</span>
-        <span>GROQ_LLAMA3.3 · 70B</span>
+        <span>ENGINE: ACTIVE</span>
         <div style={{ flex: 1 }} />
         <a href="https://base2stacks-tracker.vercel.app" target="_blank" rel="noopener noreferrer" style={{ color: '#445', textDecoration: 'none' }}>BASE2STACKS_TRACKER ↗</a>
       </div>

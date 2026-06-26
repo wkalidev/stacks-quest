@@ -37,7 +37,7 @@ Each day a new puzzle is posted about real Stacks blockchain data. Players submi
 
 ## DeFi Agent
 
-Natural language AI powered by Groq (llama-3.3-70b-versatile). 100% non-custodial — user always signs their own transactions.
+Conversational DeFi interface on Stacks. 100% non-custodial — user always signs their own transactions.
 
 ### Supported Languages
 
@@ -70,21 +70,23 @@ EN · FR · ES · ZH · AR · PT
 
 **Endpoint:** `https://stacks-quest-ten.vercel.app/api/mcp`
 
-| Tool | Description |
-|------|-------------|
-| `get_daily_puzzle` | Today's puzzle number, token pools, bet range |
-| `get_player_stats` | Player streak, total guesses, wins, earnings |
-| `get_agent_info` | Agent capabilities, DEX routing table, languages |
-| `get_staking_options` | Best staking options on Stacks with APY and risk |
-| `get_swap_routes` | Recommended DEX for a given token pair |
-| `get_checkin_info` | Daily check-in cost, streak bonus schedule |
-| `get_network_stats` | Live Stacks block height, mempool, network info |
+| Tool | Description | Premium |
+|------|-------------|---------|
+| `get_daily_puzzle` | Today's puzzle number, token pools, bet range | Free |
+| `get_player_stats` | Player streak, total guesses, wins, earnings | 1 USDC |
+| `get_agent_info` | Agent capabilities, DEX routing table, languages | Free |
+| `get_staking_options` | Best staking options on Stacks with APY and risk | 1 USDC |
+| `get_swap_routes` | Recommended DEX for a given token pair | 1 USDC |
+| `get_checkin_info` | Daily check-in cost, streak bonus schedule | Free |
+| `get_network_stats` | Live Stacks block height, mempool, network info | Free |
+
+Premium tools require x402 payment (1 USDC on Base) via `X-Payment` header.
 
 ---
 
 ## A2A Agent Card
 
-**Endpoint:** `https://stacks-quest-ten.vercel.app/api/agent-card`
+**Dynamic endpoint:** `https://stacks-quest-ten.vercel.app/api/agent-card`
 **Well-known:** `https://stacks-quest-ten.vercel.app/.well-known/agent-card.json`
 
 | Skill | Description |
@@ -95,6 +97,18 @@ EN · FR · ES · ZH · AR · PT
 | `checkin` | 0.001 STX daily, streak bonuses at 7/30/100 days |
 | `portfolio` | Real-time balances for all supported tokens |
 | `staking_info` | APY options and risk info across protocols |
+
+---
+
+## x402 Payments
+
+Premium MCP tools require payment. Send 1 USDC on Base per call via the x402 protocol.
+
+**Payment address:** `0xDEAcDe6eC27Fd0cD972c1232C4f0d4171dda2357`
+**Network:** Base mainnet
+**Asset:** USDC (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
+
+The server responds with `402 Payment Required` and `X-Payment-Required` header (base64-encoded x402 requirements) when no valid `X-Payment` header is present.
 
 ---
 
@@ -131,12 +145,13 @@ Share buttons appear automatically after hot / warm / cold results.
 |-------|------------|
 | Frontend | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS |
-| AI Agent | Groq (llama-3.3-70b-versatile) |
+| Inference | Groq (server-side, not exposed) |
 | Blockchain | Stacks, Clarity 3, Epoch 3.2 |
 | Wallets | Leather, Xverse |
 | DEX | Velar DEX, Alex DEX |
 | Bridge | Base2Stacks |
-| Tooling | Clarinet |
+| Payments | x402 on Base (USDC) |
+| Tooling | Clarinet, Hardhat |
 | Deployment | Vercel |
 
 ---
@@ -144,12 +159,14 @@ Share buttons appear automatically after hot / warm / cold results.
 ## Environment Variables
 
 ```env
-GROQ_API=your_groq_api_key
+GROQ_API_KEY=your_groq_api_key
+PAYMENT_ADDRESS=your_base_evm_address
 NEXT_PUBLIC_CONTRACT_ADDRESS=SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
 NEXT_PUBLIC_CONTRACT_NAME=stacks-quest-v2
 NEXT_PUBLIC_BASE_URL=https://stacks-quest-ten.vercel.app
 # For deploy scripts only — NEVER expose in Next.js
 STACKS_PRIVATE_KEY=your_private_key
+EVM_PRIVATE_KEY=your_evm_private_key
 ```
 
 ---
@@ -160,7 +177,7 @@ STACKS_PRIVATE_KEY=your_private_key
 git clone https://github.com/wkalidev/stacks-quest.git
 cd stacks-quest
 npm install
-cp .env .env.local  # fill in your keys
+cp .env.example .env.local  # fill in your keys
 npm run dev
 ```
 
@@ -171,8 +188,8 @@ npm run dev
 | Chain | Game Contract | Check-in Contract | Status |
 |-------|--------------|-------------------|--------|
 | Stacks | stacks-quest-v2 | stacks-quest-agent-v3 | ✅ Live |
-| Base | QuestGame.sol | QuestCheckIn.sol | 🔜 Deploying |
-| Celo | QuestGame.sol | QuestCheckIn.sol | 🔜 Deploying |
+| Base | QuestGame.sol | QuestCheckIn.sol | ✅ Live |
+| Celo | QuestGame.sol | QuestCheckIn.sol | ✅ Live |
 
 ### Tokens per Chain
 

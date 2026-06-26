@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const APP_URL  = 'https://stacks-quest-ten.vercel.app'
-const CONTRACT = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
+const APP_URL         = 'https://stacks-quest-ten.vercel.app'
+const CONTRACT        = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
+const PAYMENT_ADDRESS = process.env.PAYMENT_ADDRESS || '0xDEAcDe6eC27Fd0cD972c1232C4f0d4171dda2357'
+const USDC_BASE       = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+const PRICE_USDC      = '1000000' // 1 USDC (6 decimals)
+
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
+}
+
+const PREMIUM_TOOLS = new Set(['get_swap_routes', 'get_staking_options', 'get_player_stats'])
 
 const TOOLS = [
   {
@@ -11,13 +22,11 @@ const TOOLS = [
   },
   {
     name:        'get_player_stats',
-    description: "Get a player's stats: streak, total guesses, wins, lifetime earnings.",
+    description: "Get a player's stats: streak, total guesses, wins, lifetime earnings. Requires payment.",
     inputSchema: {
-      type: 'object',
-      properties: {
-        address: { type: 'string', description: 'Stacks wallet address (SP...)' },
-      },
-      required: ['address'],
+      type:       'object',
+      properties: { address: { type: 'string', description: 'Stacks wallet address (SP...)' } },
+      required:   ['address'],
     },
   },
   {
@@ -27,14 +36,14 @@ const TOOLS = [
   },
   {
     name:        'get_staking_options',
-    description: 'Get best staking options on Stacks: $B2S vault APY, STX stacking, LP yields.',
+    description: 'Get best staking options on Stacks: $B2S vault APY, STX stacking, LP yields. Requires payment.',
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
   {
     name:        'get_swap_routes',
-    description: 'Get swap routing info for Stacks tokens via Velar and Alex DEX.',
+    description: 'Get swap routing info for Stacks tokens via Velar and Alex DEX. Requires payment.',
     inputSchema: {
-      type: 'object',
+      type:       'object',
       properties: {
         tokenIn:  { type: 'string', description: 'Input token (STX, B2S, USDCx, sBTC, ALEX, WELSH)' },
         tokenOut: { type: 'string', description: 'Output token' },
@@ -49,27 +58,74 @@ const TOOLS = [
   },
   {
     name:        'get_network_stats',
-    description: 'Get live Stacks network stats via Hiro API: block height, STX price, mempool.',
+    description: 'Get live Stacks network stats via Hiro API: block height, mempool info.',
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
 ]
 
+function paymentRequired(id: unknown, toolName: string): NextResponse {
+  const requirements = {
+    x402Version: 1,
+    accepts: [{
+      scheme:            'exact',
+      network:           'base',
+      maxAmountRequired: PRICE_USDC,
+      resource:          `${APP_URL}/api/mcp`,
+      description:       `Stacks Quest premium tool: ${toolName} — 1 USDC on Base`,
+      mimeType:          'application/json',
+      payTo:             PAYMENT_ADDRESS,
+      maxTimeoutSeconds: 300,
+      asset:             USDC_BASE,
+      extra:             { name: 'USDC', decimals: 6, version: '2' },
+    }],
+  }
+  return new NextResponse(
+    JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32000, message: 'Payment required — send 1 USDC on Base with X-Payment header.' } }),
+    {
+      status:  402,
+      headers: {
+        'Content-Type':       'application/json',
+        ...CORS,
+        'X-Payment-Required': Buffer.from(JSON.stringify(requirements)).toString('base64'),
+      },
+    },
+  )
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS })
+}
+
 export async function GET() {
-  return NextResponse.json({
-    name:     'Stacks Quest MCP Server',
-    version:  '0.2.0',
-    protocol: 'MCP 2024-11-05',
-    tools:    TOOLS.map(t => ({ name: t.name, description: t.description })),
-    status:   'healthy',
-    endpoint: `${APP_URL}/api/mcp`,
-  })
+  return NextResponse.json(
+    {
+      name:     'Stacks Quest MCP Server',
+      version:  '1.0.0',
+      protocol: 'MCP 2024-11-05',
+      tools:    TOOLS.map(t => ({
+        name:        t.name,
+        description: t.description,
+        premium:     PREMIUM_TOOLS.has(t.name),
+      })),
+      status:   'healthy',
+      endpoint: `${APP_URL}/api/mcp`,
+      payment: {
+        supported:    true,
+        scheme:       'x402',
+        network:      'base',
+        asset:        'USDC',
+        pricePerCall: '1.00',
+      },
+    },
+    { headers: { ...CORS, 'Content-Type': 'application/json' } },
+  )
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Bad request' }, { status: 400 })
+      return NextResponse.json({ error: 'Bad request' }, { status: 400, headers: CORS })
     }
 
     const { method, params, id } = body
@@ -80,17 +136,34 @@ export async function POST(req: NextRequest) {
         result: {
           protocolVersion: '2024-11-05',
           capabilities:    { tools: {} },
-          serverInfo:      { name: 'stacks-quest-mcp', version: '0.2.0' },
+          serverInfo:      { name: 'stacks-quest-mcp', version: '1.0.0' },
         },
-      })
+      }, { headers: CORS })
+    }
+
+    if (method === 'notifications/initialized') {
+      return NextResponse.json({ jsonrpc: '2.0', id, result: {} }, { headers: CORS })
     }
 
     if (method === 'tools/list') {
-      return NextResponse.json({ jsonrpc: '2.0', id, result: { tools: TOOLS } })
+      return NextResponse.json({ jsonrpc: '2.0', id, result: { tools: TOOLS } }, { headers: CORS })
+    }
+
+    if (method === 'resources/list') {
+      return NextResponse.json({ jsonrpc: '2.0', id, result: { resources: [] } }, { headers: CORS })
+    }
+
+    if (method === 'prompts/list') {
+      return NextResponse.json({ jsonrpc: '2.0', id, result: { prompts: [] } }, { headers: CORS })
     }
 
     if (method === 'tools/call') {
-      const { name, arguments: args } = params
+      const { name, arguments: args } = params as { name: string; arguments?: Record<string, unknown> }
+
+      if (PREMIUM_TOOLS.has(name)) {
+        const paymentHeader = req.headers.get('x-payment')
+        if (!paymentHeader) return paymentRequired(id, name)
+      }
 
       if (name === 'get_daily_puzzle') {
         const puzzleNumber = Math.floor(Date.now() / 86400000)
@@ -106,17 +179,17 @@ export async function POST(req: NextRequest) {
                 bet_range:     { min: '1 STX / 1 B2S / 1 USDCx / 0.00001 sBTC', max: '100 STX / 100 B2S / 100 USDCx / 0.001 sBTC' },
                 guess_limit:   '1 per player per day',
                 hint_system:   'hot / warm / cold after each guess',
-                app:           `${APP_URL}/agent`,
+                app:           `${APP_URL}/game`,
               }, null, 2),
             }],
           },
-        })
+        }, { headers: CORS })
       }
 
       if (name === 'get_player_stats') {
-        const { address } = args || {}
-        if (!address || !/^SP[A-Z0-9]+$/.test(address)) {
-          return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid Stacks address' } })
+        const { address } = (args || {}) as { address?: string }
+        if (!address || !/^SP[A-Z0-9]{1,40}$/.test(address)) {
+          return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid Stacks address' } }, { headers: CORS })
         }
         try {
           const res  = await fetch(
@@ -136,7 +209,7 @@ export async function POST(req: NextRequest) {
                 text: JSON.stringify({ address, on_chain_data: data, app: `${APP_URL}/agent` }, null, 2),
               }],
             },
-          })
+          }, { headers: CORS })
         } catch {
           return NextResponse.json({
             jsonrpc: '2.0', id,
@@ -146,7 +219,7 @@ export async function POST(req: NextRequest) {
                 text: JSON.stringify({ address, note: 'Could not fetch on-chain data. Visit the app to see your stats.', app: `${APP_URL}/agent` }),
               }],
             },
-          })
+          }, { headers: CORS })
         }
       }
 
@@ -157,7 +230,6 @@ export async function POST(req: NextRequest) {
             content: [{
               type: 'text',
               text: JSON.stringify({
-                model:        'llama-3.3-70b-versatile (Groq)',
                 languages:    ['EN', 'FR', 'ES', 'ZH', 'AR', 'PT'],
                 capabilities: ['portfolio', 'swap', 'bridge', 'checkin', 'staking_info', 'defi_education'],
                 dex_routing: {
@@ -168,11 +240,12 @@ export async function POST(req: NextRequest) {
                 },
                 bridge:   'Base2Stacks (base2stacks-tracker.vercel.app)',
                 security: 'Non-custodial — user always signs their own transactions',
+                payment:  { supported: true, network: 'base', asset: 'USDC', pricePerCall: '1.00 USDC' },
                 app:      `${APP_URL}/agent`,
               }, null, 2),
             }],
           },
-        })
+        }, { headers: CORS })
       }
 
       if (name === 'get_staking_options') {
@@ -193,14 +266,14 @@ export async function POST(req: NextRequest) {
               }, null, 2),
             }],
           },
-        })
+        }, { headers: CORS })
       }
 
       if (name === 'get_swap_routes') {
         const VALID_TOKENS = ['STX', 'B2S', 'USDCx', 'sBTC', 'ALEX', 'WELSH']
-        const { tokenIn, tokenOut } = args || {}
-        if (!VALID_TOKENS.includes(tokenIn) || !VALID_TOKENS.includes(tokenOut)) {
-          return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid token' } })
+        const { tokenIn, tokenOut } = (args || {}) as { tokenIn?: string; tokenOut?: string }
+        if (!tokenIn || !tokenOut || !VALID_TOKENS.includes(tokenIn) || !VALID_TOKENS.includes(tokenOut)) {
+          return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid token — valid: ' + VALID_TOKENS.join(', ') } }, { headers: CORS })
         }
         const velarPairs = [['STX','B2S'],['STX','USDCx'],['STX','WELSH']]
         const alexPairs  = [['STX','sBTC'],['STX','ALEX']]
@@ -213,12 +286,12 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: JSON.stringify({
                 pair:            `${tokenIn}/${tokenOut}`,
-                recommended_dex: isVelar ? 'Velar DEX' : isAlex ? 'Alex DEX' : 'No direct route — consider multi-hop',
+                recommended_dex: isVelar ? 'Velar DEX' : isAlex ? 'Alex DEX' : 'No direct route — consider multi-hop via STX',
                 app:             `${APP_URL}/agent`,
               }, null, 2),
             }],
           },
-        })
+        }, { headers: CORS })
       }
 
       if (name === 'get_checkin_info') {
@@ -235,7 +308,7 @@ export async function POST(req: NextRequest) {
               }, null, 2),
             }],
           },
-        })
+        }, { headers: CORS })
       }
 
       if (name === 'get_network_stats') {
@@ -245,27 +318,27 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({
             jsonrpc: '2.0', id,
             result: { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] },
-          })
+          }, { headers: CORS })
         } catch {
           return NextResponse.json({
             jsonrpc: '2.0', id,
             result: { content: [{ type: 'text', text: '{"error":"Could not fetch network stats"}' }] },
-          })
+          }, { headers: CORS })
         }
       }
 
-      return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32601, message: `Tool not found: ${name}` } })
+      return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32601, message: `Tool not found: ${name}` } }, { headers: CORS })
     }
 
     if (method === 'ping') {
-      return NextResponse.json({ jsonrpc: '2.0', id, result: {} })
+      return NextResponse.json({ jsonrpc: '2.0', id, result: {} }, { headers: CORS })
     }
 
-    return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } })
+    return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } }, { headers: CORS })
   } catch {
     return NextResponse.json(
       { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } },
-      { status: 400 },
+      { status: 400, headers: CORS },
     )
   }
 }

@@ -15,7 +15,7 @@ export default function Home() {
             padding: '16px', borderRadius: 12, background: 'rgba(153,69,255,0.1)',
             border: '1px solid rgba(153,69,255,0.3)', color: '#9945ff',
             textDecoration: 'none', fontWeight: 700, fontSize: 14,
-          }}>🤖 Open DeFi Agent</Link>
+          }}>⬡ Open DeFi Agent</Link>
         </div>
         <p style={{ color: '#333', fontSize: 11, marginTop: 32 }}>
           STX · sBTC · $B2S · USDCx · Celo · Base coming soon
