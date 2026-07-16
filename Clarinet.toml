@@ -46,3 +46,17 @@ api_url = 'https://api.hiro.so'
 path = 'contracts/stacks-quest-agent-v3.clar'
 clarity_version = 3
 epoch = '3.2'
+
+# DRAFT — non déployé, ajouté uniquement pour clarinet check / tests locaux.
+# Fixe la faille CRITIQUE "réponse du puzzle publique on-chain" (voir SECURITY.md).
+[contracts.stacks-quest-v3-draft]
+path = 'contracts/stacks-quest-v3-draft.clar'
+clarity_version = 3
+epoch = '3.2'
+
+# DRAFT — non déployé, ajouté uniquement pour clarinet check / tests locaux.
+# Fixe la faille CRITIQUE "faucet B2S illimité" (voir SECURITY.md).
+[contracts.b2s-token-v5-draft]
+path = 'contracts/b2s-token-v5-draft.clar'
+clarity_version = 2
+epoch = '2.5'

@@ -127,10 +127,20 @@ Implémente le schéma qui corrige la faille CRITIQUE de la section 2 :
   après le reveal pour être compté dans le partage de pool (Clarity ne peut pas itérer sur
   toutes les tentatives d'un coup, donc chaque gagnant déclenche son propre comptage).
   `claim-reward` n'est payable qu'une fois cette fenêtre fermée, pour un calcul stable.
-- Vérification de syntaxe faite (comptage de parenthèses équilibré, 0 négatif) mais **pas
-  équivalent à `clarinet check`** — à lancer chez toi avant toute autre étape.
+- **`clarinet check` passé avec succès** (vérifié par l'utilisateur en local, après correction
+  d'un souci de caractères non-ASCII — voir plus bas) : 5 contrats, 0 erreur. C'est une vraie
+  vérification de types/syntaxe Clarity, au-delà du simple comptage de parenthèses fait ici.
 - Questions ouvertes laissées en commentaire dans le fichier (que faire si le owner ne
   révèle jamais, valeurs de fenêtre à choisir, migration des pools v2 → v3).
+
+### Correction post-review — caractères non-ASCII dans les commentaires
+`clarinet check` a révélé que Clarity rejette tout caractère non-ASCII, **y compris dans les
+commentaires** — les tirets cadratins (`—`) utilisés dans mes commentaires (habitude
+d'écriture) faisaient planter le parsing sur 23 lignes à travers les deux drafts, plus une
+ligne déjà présente dans `stacks-quest-v2.clar` (un commentaire `SECURITY NOTE` ajouté au
+round 1) et dans le stub déprécié `stacks-quest.clar`. Tous remplacés par des tirets ASCII
+simples. **Après correction : `clarinet check` passe, 5 contrats, 0 erreur** (confirmé par
+toi en local).
 
 ### Draft — B2S token v5, faucet plafonné
 Nouveau fichier `contracts/b2s-token-v5-draft.clar` — même statut (brouillon, non déployé).

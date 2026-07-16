@@ -1,13 +1,13 @@
 ;; ============================================================================
-;; DRAFT — Stacks Quest v3 — Commit-Reveal Puzzle Answers
+;; DRAFT - Stacks Quest v3 - Commit-Reveal Puzzle Answers
 ;; ============================================================================
 ;; STATUS: DRAFT / NOT DEPLOYED / NOT WIRED INTO THE APP.
 ;; This file exists to fix the CRITICAL flaw documented in SECURITY.md
-;; ("Known Game-Design Limitation — Puzzle Answers Are Public On-Chain") and in
+;; ("Known Game-Design Limitation - Puzzle Answers Are Public On-Chain") and in
 ;; the SECURITY NOTE comments on `create-puzzle` in stacks-quest.clar /
 ;; stacks-quest-v2.clar: the current live contracts store `answer` in a public
-;; map, readable by anyone the instant the owner posts the puzzle — long before
-;; `reveal-answer` — letting anyone submit a guaranteed-correct guess and drain
+;; map, readable by anyone the instant the owner posts the puzzle - long before
+;; `reveal-answer` - letting anyone submit a guaranteed-correct guess and drain
 ;; the day's reward pool.
 ;;
 ;; This draft has NOT been:
@@ -25,21 +25,21 @@
 ;;    OFF-CHAIN before calling this, keeping `answer` and `salt` secret.
 ;;    Nothing in the `puzzles` map reveals the answer while the game is open.
 ;; 2. `play` no longer determines `won` immediately (the contract doesn't know
-;;    the answer yet) — it just records the guess/bet.
+;;    the answer yet) - it just records the guess/bet.
 ;; 3. `reveal-answer` now takes the real `answer` + `salt`, re-derives the hash
 ;;    on-chain, and REJECTS the call (ERR-BAD-REVEAL) if it doesn't match the
 ;;    committed `answer-hash`. Only after this succeeds does `answer` become
-;;    known on-chain. This can only happen after `end-block` — the game must
+;;    known on-chain. This can only happen after `end-block` - the game must
 ;;    already be closed to new guesses before the answer can be revealed.
 ;; 4. New `register-win` step: once revealed, each player who guessed correctly
 ;;    must call `register-win` during a fixed registration window to be counted
 ;;    in that token's `winners` tally. This exists because Clarity has no way to
 ;;    iterate over all attempts for a day-id to compute "won" for everyone in
-;;    one transaction — someone has to trigger it, so each winner triggers their
+;;    one transaction - someone has to trigger it, so each winner triggers their
 ;;    own registration (cheap, one map-set). `claim-reward` is only callable
 ;;    after the registration window closes, so the pool-per-winner math in
 ;;    `claim-reward` is stable (winners count can't change mid-payout).
-;; 5. Losers still don't get a bet refund (unchanged from v2 economics) — bets
+;; 5. Losers still don't get a bet refund (unchanged from v2 economics) - bets
 ;;    from non-winners simply remain in the contract, exactly as in v2.
 ;;
 ;; OPEN QUESTIONS FOR WHOEVER PICKS THIS UP:
@@ -47,10 +47,10 @@
 ;;     forgetting)? Right now bets are stuck forever. Consider a timeout after
 ;;     which players can reclaim their own bet if `revealed` is still false
 ;;     N blocks after `end-block`.
-;;   - REGISTER-WINDOW-BLOCKS below is a placeholder (144 blocks / ~1 day) —
+;;   - REGISTER-WINDOW-BLOCKS below is a placeholder (144 blocks / ~1 day) -
 ;;     pick a real value.
 ;;   - Migrating existing v2 reward-pool balances / in-flight puzzles to this
-;;     contract is a separate, manual, one-time operation — not covered here.
+;;     contract is a separate, manual, one-time operation - not covered here.
 ;;   - Get this professionally audited before it ever touches real funds.
 ;; ============================================================================
 
@@ -94,7 +94,7 @@
 (define-constant MAX-BET-SBTC  u100000)
 
 (define-constant BLOCKS-PER-DAY u144)
-;; Placeholder — pick a real value before deploying. Window (in blocks) after
+;; Placeholder - pick a real value before deploying. Window (in blocks) after
 ;; `reveal-answer` during which winners must call `register-win` to be counted.
 (define-constant REGISTER-WINDOW-BLOCKS u144)
 
@@ -106,7 +106,7 @@
   { day-id: uint }
   {
     puzzle-type:        (string-ascii 20),
-    answer-hash:         (buff 32),   ;; sha256(to-consensus-buff?(answer) ++ salt) — set at create-puzzle
+    answer-hash:         (buff 32),   ;; sha256(to-consensus-buff?(answer) ++ salt) - set at create-puzzle
     answer:              (optional uint), ;; only set once reveal-answer succeeds
     tolerance:           uint,
     reward-pool-stx:     uint,
@@ -168,7 +168,7 @@
   (map-get? puzzles { day-id: (get-current-day) }))
 
 ;; NOTE: before reveal, `answer` is `none` and `answer-hash` is a commitment
-;; only — this read-only call is now safe to expose publicly during the game.
+;; only - this read-only call is now safe to expose publicly during the game.
 (define-read-only (get-attempt (day-id uint) (player principal))
   (map-get? attempts { day-id: day-id, player: player }))
 
@@ -305,7 +305,7 @@
 ;; ---------------------------------------------------------
 
 ;; Play: submit a guess with a bet. `won` is intentionally NOT determined here
-;; — the contract doesn't know the answer yet (it only has a hash commitment).
+;; - the contract doesn't know the answer yet (it only has a hash commitment).
 (define-public (play (guess uint) (bet uint) (token uint))
   (let (
     (day-id (get-current-day))
@@ -393,7 +393,7 @@
 
     (ok true)))
 
-;; Claim reward — only callable after the registration window closes, so the
+;; Claim reward - only callable after the registration window closes, so the
 ;; winners-<token> count used for the pro-rata split is final.
 (define-public (claim-reward (day-id uint))
   (let (

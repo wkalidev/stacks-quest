@@ -1,5 +1,5 @@
 ;; ============================================================================
-;; DRAFT — B2S Token v5 — Capped Faucet
+;; DRAFT - B2S Token v5 - Capped Faucet
 ;; ============================================================================
 ;; STATUS: DRAFT / NOT DEPLOYED / NOT WIRED INTO THE APP.
 ;; Fixes the CRITICAL flaw documented in SECURITY.md and in the SECURITY NOTE
@@ -18,14 +18,14 @@
 ;; WHAT CHANGED vs b2s-token-v4.clar
 ;; -----------------------------------
 ;; 1. `claim-daily-reward` now checks a GLOBAL running total (`faucet-minted`)
-;;    against a fixed `FAUCET-BUDGET` — once the budget is exhausted, the
+;;    against a fixed `FAUCET-BUDGET` - once the budget is exhausted, the
 ;;    faucet stops minting entirely (ERR-FAUCET-EXHAUSTED), regardless of how
 ;;    many fresh wallets an attacker creates. This bounds worst-case dilution
 ;;    to a number the owner explicitly chooses at deploy time instead of
 ;;    "unbounded".
 ;; 2. `claim-daily-reward` also checks a PER-ADDRESS lifetime cap
 ;;    (`MAX-CLAIMS-PER-ADDRESS`) so a single wallet can't sit there claiming
-;;    forever even while budget remains — this doesn't stop sybils (new
+;;    forever even while budget remains - this doesn't stop sybils (new
 ;;    wallets are free) but it does force an attacker to keep minting fresh
 ;;    addresses rather than looping one address forever, which is a real
 ;;    (if small) cost increase and makes on-chain sybil activity more visible
@@ -33,7 +33,7 @@
 ;; 3. Same u144-block (~1 day) per-address rate limit as v4, unchanged.
 ;;
 ;; OPEN QUESTIONS FOR WHOEVER PICKS THIS UP:
-;;   - FAUCET-BUDGET and MAX-CLAIMS-PER-ADDRESS below are placeholders — pick
+;;   - FAUCET-BUDGET and MAX-CLAIMS-PER-ADDRESS below are placeholders - pick
 ;;     real values based on target tokenomics (% of total supply you're
 ;;     willing to give away via the faucet).
 ;;   - This still does not stop sybil attacks outright, only bounds the damage
@@ -56,7 +56,7 @@
 (define-constant e6 (err u105)) ;; faucet budget exhausted
 (define-constant e7 (err u106)) ;; per-address lifetime claim cap reached
 
-;; Placeholders — pick real values before deploying.
+;; Placeholders - pick real values before deploying.
 ;; 50,000,000 B2S (5% of the 1B hard cap) ever mintable via the faucet.
 (define-constant FAUCET-BUDGET u50000000000000)
 ;; 5 B2S per claim (unchanged from v4).
