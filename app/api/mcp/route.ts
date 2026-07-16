@@ -91,7 +91,17 @@ function paymentRequired(id: unknown, toolName: string): NextResponse {
     }],
   }
   return new NextResponse(
-    JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32000, message: 'Payment required — send 1 USDC on Base with X-Payment header.' } }),
+    JSON.stringify({
+      jsonrpc: '2.0', id,
+      error: { code: -32000, message: 'Payment required — send 1 USDC on Base with X-Payment header.' },
+      // x402 spec requires `x402Version` and `accepts` at the TOP LEVEL of the
+      // response body — generic x402 clients (e.g. x402-fetch's
+      // wrapFetchWithPayment) read response.json().accepts directly and never
+      // look at the X-Payment-Required header. Spreading `requirements` here
+      // keeps this MCP-JSON-RPC-shaped for MCP clients while also being a
+      // spec-compliant 402 body for plain x402 clients.
+      ...requirements,
+    }),
     {
       status:  402,
       headers: {
