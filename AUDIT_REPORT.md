@@ -146,6 +146,53 @@ Corrige la faille CRITIQUE du faucet illimité :
 
 ---
 
+## 1quater. Round 4 — "upgrade ce qui doit être upgradé"
+
+Passe dépendance par dépendance sur les 58 vulnérabilités npm, au lieu du `--force` global
+de npm qui proposait n'importe quoi (voir round 3). Résultat par paquet :
+
+### Next.js — bump de version fait (16.2.6 → 16.2.10)
+`npm view next dist-tags` montre `latest: 16.2.10` — appliqué dans `package.json`.
+**Mais** : l'avis npm couvre la plage `9.3.4-canary.0 → 16.3.0-canary.5`, et 16.2.10 est
+toujours dedans (en tri semver, 16.2.x < 16.3.0-canary.x). **Aucune version stable de
+Next.js ne corrige cet avis pour l'instant** — seules des builds canary/preview de 16.3.0
+non publiées comme stables (`16.3.0-preview.6` au moment de l'audit) sont en dehors de la
+plage, et utiliser une preview en prod serait plus risqué que l'avis lui-même. Le bump vers
+16.2.10 reste fait (dernière version stable, corrige d'autres bugs) mais **ne fait pas
+disparaître cette entrée de `npm audit`** — attends une vraie version stable 16.3.x.
+
+### Hardhat 3.x — investigué, **pas tenté**
+Contrairement à `@stacks/connect`, un vrai fix existe en avançant (`hardhat@3.10.0`,
+`@nomicfoundation/hardhat-toolbox@7.0.0` — versions réelles, pas un downgrade). C'est une
+devDependency (outillage de déploiement/compilation de contrats), donc sans impact sur
+l'app en prod. Je ne l'ai pas fait car dans ce sandbox précis :
+- Le téléchargement du compilateur Solidity est **bloqué par la liste blanche réseau**
+  (`binaries.soliditylang.org` → 403 `blocked-by-allowlist`) — je ne peux donc jamais
+  vérifier `hardhat compile`, peu importe la version d'hardhat.
+- `npm install` lui-même a échoué ici avec une erreur `ENOTEMPTY` (souci de rename de
+  dossier propre au montage synchronisé de ce sandbox, pas à ta machine).
+- Hardhat 3 a des **changements de config non rétrocompatibles** (format des `networks`,
+  déclaration des plugins, etc.) — migrer `hardhat.config.ts` à l'aveugle, sans pouvoir
+  vérifier `hardhat compile`, risquerait de casser ton outillage de déploiement sans que je
+  puisse m'en rendre compte.
+
+Si tu veux avancer là-dessus : soit tu me dis d'écrire la migration `hardhat.config.ts` v3
+et tu la testes chez toi (`npm install && npx hardhat compile`) avant de committer, soit tu
+le fais toi-même en suivant le guide de migration officiel de Hardhat.
+
+### `@stacks/connect` — confirmé : pas de fix sûr disponible
+Vérifié via `npm view @stacks/connect versions` : la version installée (`8.2.6`) est déjà
+la plus récente publiée. La chaîne de dépendances vulnérable (WalletConnect/Reown appkit)
+est présente dans **toutes** les versions à partir de `8.1.10-alpha...` — il n'existe
+aujourd'hui **aucune version plus récente qui corrige ça**. Le seul "fix" que `npm audit`
+propose (`8.1.9`) est **antérieur** à la version actuellement installée : un downgrade, pas
+une mise à jour, qui reviendrait probablement en arrière sur des fonctionnalités du flow de
+connexion wallet actuellement utilisées. Je n'ai rien changé ici — c'est un vrai problème
+non résolu en amont (côté WalletConnect/Reown), pas quelque chose que ce repo peut corriger
+seul. À surveiller : une future release de `@stacks/connect` qui règle ça.
+
+---
+
 ## 2. Trouvé, documenté, **PAS corrigé** — nécessite ta décision
 
 ### CRITIQUE — La réponse du puzzle est publique on-chain
