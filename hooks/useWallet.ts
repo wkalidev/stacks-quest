@@ -32,23 +32,22 @@ export function useWallet(): WalletState {
 
   const connect = async () => {
     try {
-      // Try Xverse via showConnect
-      const { showConnect } = await import('@stacks/connect')
-      showConnect({
-        appDetails: { name: 'Stacks Agent', icon: '/favicon.ico' },
-        onFinish: (data: any) => {
-          const addr = data?.userSession?.loadUserData()?.profile?.stxAddress?.mainnet
-            || data?.addresses?.find((a: any) => a.symbol === 'STX' || a.type === 'p2pkh')?.address
-            || data?.profile?.stxAddress?.mainnet
-          if (addr) {
-            setAddress(addr)
-            setIsConnected(true)
-            localStorage.setItem('sq_address', addr)
-          }
-        },
-        onCancel: () => console.log('Wallet connect cancelled'),
-        userSession: undefined as any,
-      })
+      // @stacks/connect v8+ dropped showConnect() in favor of the SIP-030
+      // connect() API: it opens the wallet picker itself and resolves with
+      // addresses directly (no onFinish/onCancel callbacks — cancel just
+      // rejects the promise, caught below).
+      const { connect: connectWallet } = await import('@stacks/connect')
+      const result = await connectWallet()
+      // `AddressEntry.symbol` is optional and most wallets (incl. Xverse)
+      // leave it unset — the README's own example response never sets it.
+      // Identify the Stacks address by its c32check format instead
+      // (SP.../ST... vs Bitcoin's bc1.../1.../3...).
+      const addr = result.addresses.find((a) => /^S[PT][0-9A-Z]+$/.test(a.address))?.address
+      if (addr) {
+        setAddress(addr)
+        setIsConnected(true)
+        localStorage.setItem('sq_address', addr)
+      }
     } catch (e: any) {
       console.error('[useWallet] connect error:', e?.message || e)
     }
