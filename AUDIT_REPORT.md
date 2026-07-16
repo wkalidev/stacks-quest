@@ -203,6 +203,70 @@ seul. À surveiller : une future release de `@stacks/connect` qui règle ça.
 
 ---
 
+## 1quinquies. Round 5 - tests TypeScript pour les 2 drafts
+
+Suite a "gere tout, feu vert" : mise en place de l'infra de test Clarinet + vitest et
+ecriture de vrais tests pour les deux contrats draft.
+
+### Infra ajoutee
+- `package.json` : `@hirosystems/clarinet-sdk`, `vitest`, `vitest-environment-clarinet`
+  en devDependencies, script `"test": "vitest run"`.
+- `vitest.config.js` (racine) : config standard Clarinet SDK (environnement `clarinet`,
+  simnet frais par test).
+- `tests/stacks-quest-v3-draft.test.ts` : create-puzzle (owner-only, pas de double-creation,
+  hash committed et pas de reponse en clair a la creation), play (guess/bet enregistres sans
+  determiner `won`, rejet double-play/bet hors bornes/apres fermeture), reveal-answer (rejet
+  avant fermeture, rejet si hash ne correspond pas - mauvais salt ou mauvaise reponse - rejet
+  double-reveal, rejet non-owner), register-win (accepte bonne reponse/rejette mauvaise,
+  rejet double-registration, rejet apres fermeture de la fenetre), claim-reward (rejet avant
+  fermeture fenetre, rejet non-enregistre, montant correct a 1 gagnant, **partage pro-rata
+  verifie a 2 gagnants** (500 000 chacun sur un pool de 1 000 000), rejet double-claim).
+- `tests/b2s-token-v5-draft.test.ts` : faucet quotidien inchange (mint, rejet meme jour,
+  ok jour suivant), plafond par adresse (compteur correct, **rejet reel apres 30 claims**
+  simules bloc par bloc), budget global (valeur de depart correcte, decrement exact par
+  claim - l'epuisement complet necessiterait ~10 millions de claims, pas simulable dans un
+  test unitaire ; la logique de comptage est verifiee lineairement a la place), mecanique
+  token inchangee (mint initial au owner, rejet transfer par un tiers, rejet mint non-owner).
+
+### Ce qui N'A PAS ete fait, et pourquoi
+- **Les tests n'ont pas pu etre executes dans ce sandbox.** `npm install` echoue ici sur ce
+  repo (deja rencontre au round 4 : erreur `ENOTEMPTY` liee au montage synchronise), et une
+  bizarrerie supplementaire est apparue cette fois : la vue de `package.json` que voit mon
+  outil shell reste bloquee sur une ancienne version tronquee (1021 octets, coupee en plein
+  milieu du JSON) meme apres plusieurs modifications reussies via l'outil d'edition de
+  fichiers - confirme par le fait que `npm install` echoue avec une erreur de parsing JSON
+  a un endroit qui n'existe plus dans le vrai fichier. Le vrai fichier sur ta machine est
+  correct (verifie via l'outil de lecture de fichiers, pas le shell) - c'est une limite de
+  cache propre a ce sandbox, pas un probleme reel du repo.
+- **Verification manuelle a la place** : parenthese/structure des deux fichiers de test
+  relue a la main, patterns d'API alignes sur les conventions standard du Clarinet SDK
+  (`simnet.callPublicFn` / `callReadOnlyFn` / `mineEmptyBlock`, matchers `toBeOk`/`toBeErr`
+  fournis par le setup vitest de `@hirosystems/clarinet-sdk`). Le calcul du hash
+  commit-reveal (`sha256(to-consensus-buff?(answer) ++ salt)`) est reproduit cote test via
+  `serializeCV(Cl.uint(...))`, avec une gestion defensive du fait que cette fonction renvoie
+  soit une string hex soit des bytes bruts selon la version de `@stacks/transactions`.
+- **Je n'ai pas non plus tente de tester le facilitator x402 avec un vrai paiement.** Ca
+  demanderait de signer et d'envoyer un vrai paiement USDC avec une cle privee reelle - je
+  n'execute pas ce genre d'action financiere moi-meme, meme avec ton feu vert general.
+- **Hardhat 3.x reste non tente**, pour la meme raison qu'au round 4 (compilateur Solidity
+  bloque par la liste blanche reseau de ce sandbox).
+
+**Resultat final (verifie par toi en local) : 30/30 tests passent.**
+
+Deux bugs reels trouves et corriges au passage :
+- `simnet.mineEmptyBlock(n)` (singulier) ne mine qu'1 seul bloc et ignore l'argument -
+  il fallait `simnet.mineEmptyBlocks(n)` (pluriel). Explique la quasi-totalite des echecs
+  initiaux (rien n'avancait jamais assez pour depasser les fenetres de blocs).
+- Le compte `wallet_3` n'existe pas dans la config de comptes de ce projet - remplace par
+  `wallet_2` dans le test de partage pro-rata.
+
+Avec ca : le cycle complet create-puzzle -> play -> reveal-answer -> register-win ->
+claim-reward est verifie de bout en bout, y compris le partage pro-rata a 2 gagnants
+(500 000 chacun sur un pool de 1 000 000), et le faucet plafonne rejette bien un vrai
+31e claim consecutif d'une meme adresse (pas juste en theorie).
+
+---
+
 ## 2. Trouvé, documenté, **PAS corrigé** — nécessite ta décision
 
 ### CRITIQUE — La réponse du puzzle est publique on-chain

@@ -1,0 +1,88 @@
+id: 0
+name: Simulated deployment, used as a default for `clarinet console`, `clarinet test` and `clarinet check`
+network: simnet
+genesis:
+  wallets:
+  - name: deployer
+    address: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+    balance: '100000000000000'
+    sbtc-balance: '1000000000'
+  - name: wallet_1
+    address: STPQRWQMH3FJQWSVK5BKE0K6S00GEAZJH73B77JK
+    balance: '100000000000000'
+    sbtc-balance: '1000000000'
+  - name: wallet_2
+    address: ST2BXYHE8GG3D713TY21QWNP79232SCMFKGZYNT81
+    balance: '100000000000000'
+    sbtc-balance: '1000000000'
+  contracts:
+  - genesis
+  - lockup
+  - bns
+  - cost-voting
+  - costs
+  - pox
+  - costs-2
+  - pox-2
+  - costs-3
+  - pox-3
+  - pox-4
+  - signers
+  - signers-voting
+  - costs-4
+  - costs-5
+  - pox-5
+plan:
+  batches:
+  - id: 0
+    transactions:
+    - transaction-type: emulated-contract-publish
+      contract-name: sip-010-trait-ft-standard
+      emulated-sender: SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE
+      path: .\.cache/requirements/SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.clar
+      clarity-version: 1
+    epoch: '2.0'
+  - id: 1
+    transactions:
+    - transaction-type: emulated-contract-publish
+      contract-name: b2s-token-v4
+      emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+      path: contracts/b2s-token-v4.clar
+      clarity-version: 2
+    - transaction-type: emulated-contract-publish
+      contract-name: b2s-token-v5-draft
+      emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+      path: contracts/b2s-token-v5-draft.clar
+      clarity-version: 2
+    epoch: '2.5'
+  - id: 2
+    transactions:
+    - transaction-type: emulated-contract-publish
+      contract-name: sbtc-deposit
+      emulated-sender: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4
+      path: .\.cache/requirements/SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-deposit.clar
+      clarity-version: 3
+    epoch: '3.0'
+  - id: 3
+    transactions:
+    - transaction-type: emulated-contract-publish
+      contract-name: usdcx
+      emulated-sender: SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE
+      path: .\.cache/requirements/SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: stacks-quest-agent-v3
+      emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+      path: contracts/stacks-quest-agent-v3.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: stacks-quest-v2
+      emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+      path: contracts/stacks-quest-v2.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: stacks-quest-v3-draft
+      emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+      path: contracts/stacks-quest-v3-draft.clar
+      clarity-version: 3
+    epoch: '3.2'

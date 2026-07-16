@@ -17,7 +17,8 @@
     "prepublishOnly": "npm run build:sdk",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run"
   },
   "dependencies": {
     "@stacks/auth": "^7.4.0",
@@ -30,6 +31,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@hirosystems/clarinet-sdk": "^3.8.1",
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@openzeppelin/contracts": "^5.6.1",
     "@tailwindcss/postcss": "^4",
@@ -38,6 +40,8 @@
     "@types/react-dom": "^19",
     "hardhat": "^2.28.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10",
+    "vitest-environment-clarinet": "^3.0.2"
   }
 }
