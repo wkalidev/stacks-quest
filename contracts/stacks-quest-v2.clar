@@ -226,6 +226,12 @@
 ;; OWNER FUNCTIONS
 ;; ---------------------------------------------------------
 
+;; SECURITY NOTE (see SECURITY.md "Known Game-Design Limitation"): `answer` is stored in a
+;; PUBLIC map and is readable via `get-today-puzzle` immediately after this call, well before
+;; `reveal-answer`. Any player can read it on-chain and guess with certainty. Fixing this on the
+;; already-deployed contract is not possible (Clarity contracts aren't upgradeable) — a v3 with
+;; a commit-reveal scheme (store hash(answer+salt), reveal later) is needed. Do not seed large
+;; reward pools until that ships.
 (define-public (create-puzzle
   (puzzle-type (string-ascii 20))
   (answer      uint)

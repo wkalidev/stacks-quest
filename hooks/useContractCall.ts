@@ -4,6 +4,11 @@
 const CONTRACT_ADDRESS = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
 const CONTRACT_NAME    = 'stacks-quest-v2'
 
+// token IDs match the contract: 0=STX, 1=B2S, 2=USDCx, 3=sBTC — sBTC uses 8 decimals, rest use 6.
+// (Previously this hardcoded a 1e6 multiplier for every token, which would have understated
+// sBTC bets by 100x had this function ever been wired up to the UI.)
+const TOKEN_DECIMALS: Record<number, number> = { 0: 6, 1: 6, 2: 6, 3: 8 }
+
 export async function callPlay(
   guess:     number,
   betAmount: number,
@@ -20,13 +25,16 @@ export async function callPlay(
       return Array.from(r as Uint8Array).map((b: number) => b.toString(16).padStart(2, '0')).join('')
     }
 
+    const decimals = TOKEN_DECIMALS[token] ?? 6
+    const betMicro = Math.round(betAmount * 10 ** decimals)
+
     await openContractCall({
       contractAddress:   CONTRACT_ADDRESS,
       contractName:      CONTRACT_NAME,
       functionName:      'play',
       functionArgs:      [
         stacks.uintCV(guess),
-        stacks.uintCV(betAmount * 1_000_000),
+        stacks.uintCV(betMicro),
         stacks.uintCV(token),
       ],
       postConditionMode: stacks.PostConditionMode.Allow,

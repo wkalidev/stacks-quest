@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { callReadOnly, cvUint, cvBool, principalToHex } from '../../lib/stacksRead'
 
 const APP_URL         = 'https://stacks-quest-ten.vercel.app'
 const CONTRACT        = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
@@ -92,6 +93,44 @@ function paymentRequired(id: unknown, toolName: string): NextResponse {
   )
 }
 
+// Structural validation of the X-Payment header (x402 "exact" scheme on Base/USDC).
+//
+// NOTE: this checks that the payment payload is well-formed, addressed to us, priced
+// correctly, and not expired — it does NOT verify the EIP-3009 signature or that the
+// transfer actually settled on-chain. That requires calling an x402 facilitator's
+// /verify + /settle endpoints (see https://x402.org and SECURITY.md). Until that is
+// wired up, treat this as a floor that blocks trivial/garbage headers, not a guarantee
+// that payment was received.
+function isPaymentPayloadValid(headerValue: string): boolean {
+  try {
+    const decoded = Buffer.from(headerValue, 'base64').toString('utf8')
+    const parsed  = JSON.parse(decoded)
+
+    const auth = parsed?.payload?.authorization ?? parsed?.authorization
+    if (!auth) return false
+
+    if (parsed.scheme && parsed.scheme !== 'exact') return false
+    if (parsed.network && parsed.network !== 'base') return false
+
+    const to = String(auth.to || '').toLowerCase()
+    if (to !== PAYMENT_ADDRESS.toLowerCase()) return false
+
+    const value = BigInt(auth.value ?? 0)
+    if (value < BigInt(PRICE_USDC)) return false
+
+    const nowSec = Math.floor(Date.now() / 1000)
+    if (auth.validBefore !== undefined && Number(auth.validBefore) < nowSec) return false
+    if (auth.validAfter !== undefined && Number(auth.validAfter) > nowSec) return false
+
+    const signature = parsed?.payload?.signature ?? parsed?.signature
+    if (typeof signature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(signature)) return false
+
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
@@ -162,7 +201,7 @@ export async function POST(req: NextRequest) {
 
       if (PREMIUM_TOOLS.has(name)) {
         const paymentHeader = req.headers.get('x-payment')
-        if (!paymentHeader) return paymentRequired(id, name)
+        if (!paymentHeader || !isPaymentPayloadValid(paymentHeader)) return paymentRequired(id, name)
       }
 
       if (name === 'get_daily_puzzle') {
@@ -192,21 +231,25 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid Stacks address' } }, { headers: CORS })
         }
         try {
-          const res  = await fetch(
-            `https://api.mainnet.hiro.so/v2/contracts/call-read/${CONTRACT}/stacks-quest-agent-v3/get-user-stats`,
-            {
-              method:  'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body:    JSON.stringify({ sender: address, arguments: [address] }),
-            },
-          )
-          const data = res.ok ? await res.json() : {}
+          const argHex     = principalToHex(address)
+          const streak     = await callReadOnly(CONTRACT, 'stacks-quest-agent-v3', 'get-streak', [argHex], address)
+          const checkedIn  = await callReadOnly(CONTRACT, 'stacks-quest-agent-v3', 'has-checked-in-today', [argHex], address)
+
+          if (!streak) throw new Error('read-only call failed')
+
           return NextResponse.json({
             jsonrpc: '2.0', id,
             result: {
               content: [{
                 type: 'text',
-                text: JSON.stringify({ address, on_chain_data: data, app: `${APP_URL}/agent` }, null, 2),
+                text: JSON.stringify({
+                  address,
+                  streak:            cvUint(streak, 'current-streak'),
+                  best_streak:       cvUint(streak, 'best-streak'),
+                  total_checkins:    cvUint(streak, 'total-checkins'),
+                  checked_in_today:  checkedIn ? cvBool(checkedIn) : null,
+                  app: `${APP_URL}/agent`,
+                }, null, 2),
               }],
             },
           }, { headers: CORS })

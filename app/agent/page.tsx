@@ -13,7 +13,7 @@ const AGENT_V3 = 'stacks-quest-agent-v3'
 const BRIDGE_URL = 'https://base2stacks-tracker.vercel.app'
 
 type Msg = { role: 'user' | 'assistant'; content: string; action?: any; ts?: string }
-type Tab = 'chat' | 'portfolio' | 'streak' | 'withdraw'
+type Tab = 'chat' | 'portfolio' | 'streak'
 type Portfolio = Record<string, number>
 type Streak = { current: number; best: number; total: number }
 
@@ -112,10 +112,6 @@ export default function AgentTerminal() {
   const [streak, setStreak] = useState<Streak>({ current: 0, best: 0, total: 0 })
   const [checkedIn, setCheckedIn] = useState(false)
   const [checking, setChecking] = useState(false)
-  const [withdrawAmt, setWithdrawAmt] = useState('')
-  const [withdrawing, setWithdrawing] = useState(false)
-  const [withdrawTx, setWithdrawTx] = useState<string | null>(null)
-  const [withdrawErr, setWithdrawErr] = useState<string | null>(null)
   const [block, setBlock] = useState(0)
   const [stxPrice, setStxPrice] = useState(0)
   const [networkLatency, setNetworkLatency] = useState(0)
@@ -223,18 +219,6 @@ export default function AgentTerminal() {
     )
   }
 
-  const doWithdraw = async () => {
-    if (!isConnected || !withdrawAmt || withdrawing) return
-    const amt = parseFloat(withdrawAmt)
-    if (isNaN(amt) || amt <= 0) { setWithdrawErr('INVALID_AMOUNT'); return }
-    setWithdrawing(true); setWithdrawErr(null); setWithdrawTx(null)
-    const stacks = await import('@stacks/transactions')
-    await callContract(AGENT_V3, 'withdraw-treasury', [stacks.uintCV(Math.round(amt * 1_000_000))],
-      (txid) => { setWithdrawTx(txid); setWithdrawAmt(''); setWithdrawing(false) },
-      () => { setWithdrawErr('CANCELLED'); setWithdrawing(false) }
-    )
-  }
-
   if (!mounted) return null
 
   const MONO = "'JetBrains Mono','Fira Code','Courier New',monospace"
@@ -321,10 +305,10 @@ export default function AgentTerminal() {
           {/* Tab bar */}
           <div style={{ display: 'flex', borderBottom: '1px solid #1a2030', background: '#070a0f' }}>
             <div style={{ padding: '6px 14px', fontSize: 8, color: '#445', letterSpacing: '0.2em', borderRight: '1px solid #1a2030' }}>TERMINAL://stacks/agent</div>
-            {(['chat', 'portfolio', 'streak', 'withdraw'] as Tab[]).map(t => (
+            {(['chat', 'portfolio', 'streak'] as Tab[]).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 style={{ padding: '6px 14px', fontSize: 8, letterSpacing: '0.15em', fontFamily: MONO, cursor: 'pointer', background: 'none', border: 'none', borderBottom: tab === t ? '2px solid #9945FF' : '2px solid transparent', color: tab === t ? '#9945FF' : '#445', textTransform: 'uppercase' }}>
-                {t === 'withdraw' ? '⬆ OUT' : t}
+                {t}
               </button>
             ))}
           </div>
@@ -463,33 +447,6 @@ export default function AgentTerminal() {
                   <span style={{ color: streak.current >= b.days ? '#00ff9f' : '#334', fontWeight: 700 }}>{b.bonus}</span>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* WITHDRAW */}
-          {tab === 'withdraw' && (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-              <div style={{ fontSize: 8, color: '#445', letterSpacing: '0.2em', marginBottom: 12 }}>// WITHDRAW_TREASURY · OWNER_ONLY</div>
-              <div style={{ padding: '12px', borderRadius: 4, background: 'rgba(255,68,68,0.04)', border: '1px solid rgba(255,68,68,0.1)', marginBottom: 14, fontSize: 10, color: '#556' }}>
-                ⚠ Only contract owner can withdraw treasury STX from check-in fees.
-              </div>
-              {isConnected && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <input type="number" value={withdrawAmt} onChange={e => { setWithdrawAmt(e.target.value); setWithdrawErr(null) }} placeholder="0.00 STX"
-                    style={{ padding: '10px 12px', borderRadius: 4, background: 'rgba(255,255,255,0.03)', border: '1px solid #1a2030', color: '#aab', fontSize: 16, fontFamily: MONO, outline: 'none' }} />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {[0.01, 0.05, 0.1, 0.5].map(v => (
-                      <button key={v} onClick={() => setWithdrawAmt(String(v))} style={{ flex: 1, padding: '6px', borderRadius: 4, fontSize: 9, fontFamily: MONO, cursor: 'pointer', background: 'rgba(255,255,255,0.03)', border: '1px solid #1a2030', color: '#556' }}>{v}</button>
-                    ))}
-                  </div>
-                  {withdrawErr && <div style={{ fontSize: 9, color: '#ff6666', padding: '6px 10px', borderRadius: 4, background: 'rgba(255,68,68,0.05)', border: '1px solid rgba(255,68,68,0.15)' }}>⚠ {withdrawErr}</div>}
-                  {withdrawTx && <div style={{ fontSize: 9, color: '#00ff9f', padding: '6px 10px', borderRadius: 4, background: 'rgba(0,255,159,0.05)', border: '1px solid rgba(0,255,159,0.15)' }}>✅ <a href={`https://explorer.hiro.so/txid/${withdrawTx}?chain=mainnet`} target="_blank" rel="noopener noreferrer" style={{ color: '#00d4ff', textDecoration: 'none' }}>{withdrawTx.slice(0, 16)}…↗</a></div>}
-                  <button onClick={doWithdraw} disabled={!withdrawAmt || withdrawing}
-                    style={{ padding: '10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', fontFamily: MONO, cursor: withdrawAmt ? 'pointer' : 'not-allowed', background: withdrawAmt ? 'rgba(255,68,68,0.1)' : 'transparent', border: withdrawAmt ? '1px solid rgba(255,68,68,0.3)' : '1px solid #1a2030', color: withdrawAmt ? '#ff6666' : '#334' }}>
-                    {withdrawing ? 'CONFIRMING…' : `⬆ WITHDRAW ${withdrawAmt || '0'} STX`}
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>

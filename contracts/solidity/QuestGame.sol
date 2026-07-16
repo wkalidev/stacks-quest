@@ -155,6 +155,12 @@ contract QuestGame is Ownable, ReentrancyGuard {
      * @param seed1       ERC-20 #1 pool seed (owner must have approved this contract).
      * @param seed2       ERC-20 #2 pool seed (0 if token2 unused).
      */
+    // SECURITY NOTE (see SECURITY.md "Known Game-Design Limitation"): `puzzles` is a PUBLIC
+    // mapping, so `answer` is readable via the auto-generated `puzzles(dayId)` getter as soon
+    // as this function returns — long before `revealAnswer()`. Any player can read it on-chain
+    // and guess with certainty. This cannot be patched on an already-deployed (non-upgradeable)
+    // contract; a v3 with a commit-reveal scheme is needed. Do not seed large reward pools
+    // until that ships.
     function createPuzzle(
         string calldata puzzleType,
         uint256 answer,
@@ -300,6 +306,10 @@ contract QuestGame is Ownable, ReentrancyGuard {
             if (bet < MIN_BET_NATIVE || bet > MAX_BET_NATIVE) revert InvalidBet();
             if (msg.value != bet) revert InvalidBet();
         } else {
+            // Reject stray native value on ERC-20 plays — previously any ETH/CELO sent
+            // alongside an ERC-20 bet was silently absorbed into the contract balance
+            // with no refund path (recoverable only via owner emergency withdraw).
+            if (msg.value != 0) revert InvalidBet();
             if (bet < MIN_BET_ERC20 || bet > MAX_BET_ERC20) revert InvalidBet();
             address tokenAddr = token == TOKEN_ERC20_1 ? token1 : token2;
             IERC20(tokenAddr).safeTransferFrom(msg.sender, address(this), bet);

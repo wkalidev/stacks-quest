@@ -1,0 +1,7 @@
+# Normalize line endings to LF in the repo regardless of the OS/editor used to save.
+* text=auto eol=lf
+
+# Binary-ish assets — leave untouched.
+*.png binary
+*.jpg binary
+*.ico binary

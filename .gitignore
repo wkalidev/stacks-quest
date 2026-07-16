@@ -23,6 +23,14 @@
 # sdk build output
 /sdk
 
+# hardhat build output
+/contracts/artifacts
+/contracts/cache
+/typechain-types
+
+# local tool configs
+.claude/
+
 # misc
 .DS_Store
 *.pem

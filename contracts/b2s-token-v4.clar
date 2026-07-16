@@ -20,6 +20,12 @@
   (begin (asserts! (is-eq tx-sender s) e2) (asserts! (> a u0) e4) (try! (ft-transfer? b2s-token a s r)) (ok true)))
 (define-public (mint (a uint) (r principal))
   (begin (asserts! (is-eq tx-sender o) e1) (ft-mint? b2s-token a r)))
+;; SECURITY NOTE: unlimited sybil-mintable faucet. Any address can call this once per
+;; ~day-bucket and mint u5000000 (5 B2S). Stacks addresses are free to generate, so an
+;; attacker can spin up arbitrarily many wallets and mint B2S at ~zero cost (just tx fees),
+;; diluting supply. Cannot be patched on this already-deployed (non-upgradeable) contract;
+;; a v5 needs either a mint cap, a real proof-of-personhood/rate-limit gate, or removal of
+;; this faucet entirely. See SECURITY.md.
 (define-public (claim-daily-reward)
   (let ((c tx-sender) (d (/ block-height u144)))
     (asserts! (is-none (map-get? dc { t: c, d: d })) e5)

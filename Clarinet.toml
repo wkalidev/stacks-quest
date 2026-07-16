@@ -36,13 +36,12 @@ callee_filter = false
 [repl.remote_data]
 enabled = false
 api_url = 'https://api.hiro.so'
+
+# stacks-quest-agent-v2 removed from the active project during the 2026-07-16 audit —
+# superseded by v3 below, never deployed as the active check-in contract (see
+# contracts/stacks-quest-agent-v2.clar for the deprecation note).
+
 # Agent non-custodial - Clarity 3 / epoch 3.2
-
-[contracts.stacks-quest-agent-v2]
-path = 'contracts/stacks-quest-agent-v2.clar'
-clarity_version = 3
-epoch = '3.2'
-
 [contracts.stacks-quest-agent-v3]
 path = 'contracts/stacks-quest-agent-v3.clar'
 clarity_version = 3

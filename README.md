@@ -213,13 +213,13 @@ import StacksQuestSDK from '@wkalidev/stacks-quest-sdk'
 const sdk = new StacksQuestSDK()
 
 // Get today's puzzle on any chain
-const puzzle = await sdk.getPuzzle('stacks')
-const puzzle = await sdk.getPuzzle('base')
-const puzzle = await sdk.getPuzzle('celo')
+const stacksPuzzle = await sdk.getPuzzle('stacks')
+const basePuzzle   = await sdk.getPuzzle('base')
+const celoPuzzle    = await sdk.getPuzzle('celo')
 
-// Get player stats
-const stats = await sdk.getPlayerStats('SP1ABC...', 'stacks')
-const stats = await sdk.getPlayerStats('0xABC...', 'base')
+// Get player stats (Stacks is fully live; Base/Celo read on-chain check-in stats)
+const stacksStats = await sdk.getPlayerStats('SP1ABC...', 'stacks')
+const baseStats    = await sdk.getPlayerStats('0xABC...', 'base')
 
 // Get supported tokens
 sdk.getSupportedTokens('stacks') // ['STX', 'B2S', 'USDCX', 'AEUSDC', 'SBTC']

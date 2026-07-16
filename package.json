@@ -1,11 +1,17 @@
 {
   "name": "@wkalidev/stacks-quest-sdk",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Universal SDK for Stacks Quest multichain puzzle game",
   "main": "./sdk/index.js",
   "types": "./sdk/index.d.ts",
+  "files": [
+    "sdk",
+    "sdk-src/index.ts",
+    "README.md"
+  ],
   "scripts": {
     "build:sdk": "tsc -p sdk-src/tsconfig.json",
+    "prepublishOnly": "npm run build:sdk",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
