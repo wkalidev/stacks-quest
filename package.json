@@ -4,6 +4,9 @@
   "description": "Universal SDK for Stacks Quest multichain puzzle game",
   "main": "./sdk/index.js",
   "types": "./sdk/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "sdk",
     "sdk-src/index.ts",
