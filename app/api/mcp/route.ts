@@ -7,6 +7,16 @@ const PAYMENT_ADDRESS = process.env.PAYMENT_ADDRESS || '0xDEAcDe6eC27Fd0cD972c12
 const USDC_BASE       = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const PRICE_USDC      = '1000000' // 1 USDC (6 decimals)
 
+// x402 facilitator (verify + settle). Defaults to the public reference facilitator
+// documented at https://x402.org — set X402_FACILITATOR_URL / X402_FACILITATOR_API_KEY
+// to point at a production facilitator (e.g. Coinbase CDP) once one is provisioned.
+// X402_STRICT_FACILITATOR=true blocks all premium calls if the facilitator is
+// unreachable; default (false) degrades to structural-only validation so an outage
+// on the facilitator's side doesn't take the whole MCP server down.
+const FACILITATOR_URL    = process.env.X402_FACILITATOR_URL || 'https://x402.org/facilitator'
+const FACILITATOR_KEY    = process.env.X402_FACILITATOR_API_KEY || ''
+const STRICT_FACILITATOR = process.env.X402_STRICT_FACILITATOR === 'true'
+
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -131,6 +141,64 @@ function isPaymentPayloadValid(headerValue: string): boolean {
   }
 }
 
+// Calls a real x402 facilitator's /verify then /settle endpoints so premium tools are
+// only served against payments that actually settle on-chain, not just well-formed
+// headers. Falls back to "pass" (structural-only, same as before) if the facilitator
+// itself is unreachable, unless X402_STRICT_FACILITATOR=true.
+//
+// NOTE: this cannot be live-tested from this environment (no outbound network access
+// to x402.org here) — verified for syntax/type-correctness only. Test against a real
+// facilitator + a real signed payment before relying on it in production.
+async function facilitatorVerifyAndSettle(headerValue: string, toolName: string): Promise<boolean> {
+  let paymentPayload: unknown
+  try {
+    paymentPayload = JSON.parse(Buffer.from(headerValue, 'base64').toString('utf8'))
+  } catch {
+    return false
+  }
+
+  const paymentRequirements = {
+    scheme:            'exact',
+    network:           'base',
+    maxAmountRequired: PRICE_USDC,
+    resource:          `${APP_URL}/api/mcp`,
+    description:       `Stacks Quest premium tool: ${toolName} — 1 USDC on Base`,
+    mimeType:          'application/json',
+    payTo:             PAYMENT_ADDRESS,
+    maxTimeoutSeconds: 300,
+    asset:             USDC_BASE,
+    extra:             { name: 'USDC', decimals: 6, version: '2' },
+  }
+
+  const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (FACILITATOR_KEY) authHeaders['Authorization'] = `Bearer ${FACILITATOR_KEY}`
+
+  try {
+    const verifyRes = await fetch(`${FACILITATOR_URL}/verify`, {
+      method:  'POST',
+      headers: authHeaders,
+      body:    JSON.stringify({ x402Version: 1, paymentPayload, paymentRequirements }),
+      signal:  AbortSignal.timeout(8000),
+    })
+    if (!verifyRes.ok) return !STRICT_FACILITATOR
+    const verifyData = await verifyRes.json().catch(() => null)
+    if (!verifyData || verifyData.isValid !== true) return false
+
+    const settleRes = await fetch(`${FACILITATOR_URL}/settle`, {
+      method:  'POST',
+      headers: authHeaders,
+      body:    JSON.stringify({ x402Version: 1, paymentPayload, paymentRequirements }),
+      signal:  AbortSignal.timeout(8000),
+    })
+    if (!settleRes.ok) return !STRICT_FACILITATOR
+    const settleData = await settleRes.json().catch(() => null)
+    return settleData?.success === true
+  } catch {
+    // Facilitator unreachable (network error, timeout, DNS, etc).
+    return !STRICT_FACILITATOR
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
@@ -202,6 +270,9 @@ export async function POST(req: NextRequest) {
       if (PREMIUM_TOOLS.has(name)) {
         const paymentHeader = req.headers.get('x-payment')
         if (!paymentHeader || !isPaymentPayloadValid(paymentHeader)) return paymentRequired(id, name)
+
+        const settled = await facilitatorVerifyAndSettle(paymentHeader, name)
+        if (!settled) return paymentRequired(id, name)
       }
 
       if (name === 'get_daily_puzzle') {

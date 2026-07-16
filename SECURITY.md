@@ -8,6 +8,7 @@
 | `STACKS_PRIVATE_KEY` | Scripts only, never in Next.js | Fund loss — CRITICAL |
 | `EVM_PRIVATE_KEY` | Scripts only, never in Next.js | Fund loss — CRITICAL |
 | `PAYMENT_ADDRESS` | Server-side only | Misdirected payments — MEDIUM |
+| `X402_FACILITATOR_API_KEY` | Server-side only | Facilitator account abuse — MEDIUM |
 
 ## Reporting Vulnerabilities
 
@@ -40,17 +41,26 @@ the cost of running a script that reads `get-today-puzzle` before playing.
 
 ## x402 Payment Verification
 
-The `/api/mcp` premium-tool gate now does structural validation of the `X-Payment` header
-(`isPaymentPayloadValid` in `app/api/mcp/route.ts`): it must base64/JSON-decode into an
-`exact`-scheme, Base-network payload addressed to `PAYMENT_ADDRESS`, for at least
-`PRICE_USDC`, within its `validAfter`/`validBefore` window, carrying a signature-shaped
-value. This blocks the previous trivial bypass (any non-empty header string was accepted).
+The `/api/mcp` premium-tool gate does two layers of checking, both in `app/api/mcp/route.ts`:
 
-It still does **not** verify the EIP-3009 signature or that the transfer settled on-chain —
-that requires calling an x402 facilitator's `/verify` and `/settle` endpoints (see
-https://x402.org). A caller can still fabricate a well-formed but unsigned/unfunded payload
-and pass this check. Wire up facilitator-based settlement before relying on this for real
-revenue protection.
+1. **Structural validation** (`isPaymentPayloadValid`): the `X-Payment` header must
+   base64/JSON-decode into an `exact`-scheme, Base-network payload addressed to
+   `PAYMENT_ADDRESS`, for at least `PRICE_USDC`, within its `validAfter`/`validBefore`
+   window, carrying a signature-shaped value. Blocks trivial/garbage headers.
+2. **Facilitator verify + settle** (`facilitatorVerifyAndSettle`): calls a real x402
+   facilitator's `/verify` then `/settle` endpoints so the request must carry an
+   actually-valid EIP-3009 signature and the USDC transfer must actually settle on Base
+   before a premium tool is served. Configured via `X402_FACILITATOR_URL` /
+   `X402_FACILITATOR_API_KEY` (defaults to the public reference facilitator at
+   https://x402.org if unset).
+
+**Fail-open by default**: if the facilitator is unreachable (network error, timeout, 5xx),
+the gate falls back to structural-only validation rather than blocking all premium traffic —
+set `X402_STRICT_FACILITATOR=true` to fail closed instead once a funded, reliable production
+facilitator is wired up. **Not live-tested**: this sandbox has no outbound network access to
+x402.org, so `facilitatorVerifyAndSettle` has only been verified for syntax/type-correctness,
+not against a real signed payment. Test against a real facilitator before relying on this for
+revenue protection in production.
 
 ## SSRF Protection
 
