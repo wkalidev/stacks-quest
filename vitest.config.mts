@@ -1,5 +1,4 @@
-/// <reference types="vitest" />
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import {
   vitestSetupFilePath,
   getClarinetVitestsArgv,
@@ -20,9 +19,7 @@ export default defineConfig({
   test: {
     environment: "clarinet",
     pool: "forks",
-    poolOptions: {
-      forks: { singleFork: true },
-    },
+    singleFork: true, // Vitest 4: poolOptions.forks.* moved to top-level
     setupFiles: [vitestSetupFilePath],
     environmentOptions: {
       clarinet: {
