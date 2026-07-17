@@ -44,6 +44,13 @@ export default function GamePage() {
   const [played, setPlayed]         = useState(false)
   const [dayId, setDayId]           = useState<number | null>(null)
   const [puzzleStatus, setPuzzleStatus] = useState<PuzzleStatus>('idle')
+  // null = unknown/still checking (never blocks play - a transient read
+  // failure shouldn't stop someone from playing). true = confirmed a puzzle
+  // exists on-chain for today. false = confirmed there is none yet (owner
+  // hasn't called create-puzzle for today's day-id) - this is the only value
+  // that actually blocks submission, since we've proven play() would revert
+  // with ERR-NO-GAME-TODAY.
+  const [puzzleLive, setPuzzleLive] = useState<boolean | null>(null)
   const [stats, setStats]           = useState<any>(null)
   const [txId, setTxId]             = useState<string | null>(null)
   const [error, setError]           = useState<string | null>(null)
@@ -63,6 +70,7 @@ export default function GamePage() {
       checkPlayed()
       loadStats()
       loadCheckinStatus()
+      checkOnChainPuzzleLive()
     }
   }, [isConnected, address])
 
@@ -138,6 +146,27 @@ export default function GamePage() {
       // of silently claiming the player is done for the day.
       console.error('[game] checkPuzzleStatus failed:', e)
       setPuzzleStatus('check-failed')
+    }
+  }
+
+  // Proactively checks whether today's puzzle actually exists on-chain
+  // BEFORE letting anyone submit a guess. play() itself already enforces
+  // this (reverts ERR-NO-GAME-TODAY / u104 if the owner hasn't called
+  // create-puzzle for today's day-id yet), but that check only happens
+  // after the player already paid a network fee for a doomed transaction -
+  // this hit real users twice in prod. Left as `null` (not blocking) on any
+  // read failure - we only want to block on a *confirmed* absence, never on
+  // "we're not sure".
+  async function checkOnChainPuzzleLive() {
+    if (!address) return
+    try {
+      const day = await getCurrentDay(address)
+      if (day === null) return // read failed upstream, already logged there
+      const info = await getPuzzleByDay(day, address)
+      setPuzzleLive(info !== null)
+    } catch (e) {
+      console.error('[game] checkOnChainPuzzleLive failed:', e)
+      // leave as unknown rather than falsely blocking play on a transient hiccup
     }
   }
 
@@ -224,6 +253,10 @@ export default function GamePage() {
 
   async function submitGuess() {
     if (!isConnected || !address || !guess || submitting) return
+    if (puzzleLive === false) {
+      setError('No puzzle is live today yet. The owner needs to create one first — check back soon.')
+      return
+    }
     const guessNum = parseInt(guess)
     if (isNaN(guessNum) || guessNum <= 0) { setError('Invalid guess'); return }
     const betNum = parseFloat(bet)
@@ -484,8 +517,18 @@ export default function GamePage() {
           </div>
         )}
 
+        {/* No puzzle live yet - confirmed on-chain, blocks submission before
+            anyone can burn a network fee on a doomed play() call */}
+        {isChainLive && !played && isConnected && puzzleLive === false && selectedChain === 'stacks' && (
+          <div style={{ background: 'rgba(255,153,68,0.05)', border: '1px solid rgba(255,153,68,0.25)', borderRadius: 12, padding: 24, marginBottom: 16, textAlign: 'center' }}>
+            <p style={{ fontSize: 24, margin: '0 0 8px' }}>⏳</p>
+            <p style={{ color: '#ff9944', fontWeight: 700, fontSize: 14, margin: '0 0 6px' }}>No puzzle live right now</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Today&apos;s puzzle hasn&apos;t been created yet. Check back soon!</p>
+          </div>
+        )}
+
         {/* Submit form */}
-        {isChainLive && !played && isConnected && (
+        {isChainLive && !played && isConnected && !(puzzleLive === false && selectedChain === 'stacks') && (
           <div style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <p style={{ color: '#555', fontSize: 11, margin: '0 0 16px', letterSpacing: '0.1em' }}>{t.yourGuess}</p>
 
