@@ -294,11 +294,14 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: JSON.stringify({
                 puzzle_number: puzzleNumber,
-                contract:      `${CONTRACT}.stacks-quest-v2`,
+                contract:      `${CONTRACT}.stacks-quest-v3`,
                 token_pools:   ['STX', '$B2S', 'USDCx', 'sBTC'],
                 bet_range:     { min: '1 STX / 1 B2S / 1 USDCx / 0.00001 sBTC', max: '100 STX / 100 B2S / 100 USDCx / 0.001 sBTC' },
                 guess_limit:   '1 per player per day',
-                hint_system:   'hot / warm / cold after each guess',
+                // v3 uses commit-reveal: the answer is not known on-chain until
+                // the owner calls reveal-answer after the game window closes.
+                // Correct guessers then call register-win, then claim-reward.
+                result_flow:   'commit-reveal: play now, answer revealed after the window closes, then register-win + claim-reward',
                 app:           `${APP_URL}/game`,
               }, null, 2),
             }],

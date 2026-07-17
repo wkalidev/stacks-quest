@@ -59,7 +59,7 @@ EN · FR · ES · ZH · AR · PT
 |-------|----------|----------|
 | STX | native | 6 |
 | sBTC | SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token | 8 |
-| $B2S | SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4 | 6 |
+| $B2S | SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v5 | 6 |
 | USDCx | SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx | 6 |
 | ALEX | SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex | 8 |
 | WELSH | SP3NE50GEXFG9SZGTT51P40X2CKYSZ5CC4ZTZ7A2G.welshcorgicoin-token | 6 |
@@ -123,7 +123,7 @@ After a puzzle result, share your score Wordle-style:
 #StacksQuest #Bitcoin #Stacks
 ```
 
-Share buttons appear automatically after hot / warm / cold results.
+Share buttons appear once your reward is claimed (see commit-reveal flow below).
 
 ---
 
@@ -133,9 +133,11 @@ Share buttons appear automatically after hot / warm / cold results.
 
 | Contract | Description |
 |----------|-------------|
-| `stacks-quest-v2` | Daily puzzle — multi-token bets, reward pools |
+| `stacks-quest-v3` | Daily puzzle — commit-reveal (play → reveal-answer → register-win → claim-reward), multi-token bets, reward pools |
 | `stacks-quest-agent-v3` | Daily check-in (0.001 STX), streak, agent log |
-| `b2s-token-v4` | $B2S SIP-010 token |
+| `b2s-token-v5` | $B2S SIP-010 token — faucet capped at 15M B2S total, 30 claims/address |
+
+> `stacks-quest-v2` and `b2s-token-v4` are the previous, superseded contracts. They remain deployed (Clarity contracts are immutable) but the app and MCP server no longer point at them — see `AUDIT_REPORT.md` for why (public-answer and unlimited-faucet issues).
 
 ---
 
@@ -162,7 +164,7 @@ Share buttons appear automatically after hot / warm / cold results.
 GROQ_API_KEY=your_groq_api_key
 PAYMENT_ADDRESS=your_base_evm_address
 NEXT_PUBLIC_CONTRACT_ADDRESS=SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N
-NEXT_PUBLIC_CONTRACT_NAME=stacks-quest-v2
+NEXT_PUBLIC_CONTRACT_NAME=stacks-quest-v3
 NEXT_PUBLIC_BASE_URL=https://stacks-quest-ten.vercel.app
 # For deploy scripts only — NEVER expose in Next.js
 STACKS_PRIVATE_KEY=your_private_key
@@ -187,7 +189,7 @@ npm run dev
 
 | Chain | Game Contract | Check-in Contract | Status |
 |-------|--------------|-------------------|--------|
-| Stacks | stacks-quest-v2 | stacks-quest-agent-v3 | ✅ Live |
+| Stacks | stacks-quest-v3 | stacks-quest-agent-v3 | ✅ Live |
 | Base | QuestGame.sol | QuestCheckIn.sol | ✅ Live |
 | Celo | QuestGame.sol | QuestCheckIn.sol | ✅ Live |
 

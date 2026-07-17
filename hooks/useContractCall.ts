@@ -2,7 +2,7 @@
 'use client'
 
 const CONTRACT_ADDRESS = 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
-const CONTRACT_NAME    = 'stacks-quest-v2'
+const CONTRACT_NAME    = 'stacks-quest-v3'
 
 // token IDs match the contract: 0=STX, 1=B2S, 2=USDCx, 3=sBTC — sBTC uses 8 decimals, rest use 6.
 // (Previously this hardcoded a 1e6 multiplier for every token, which would have understated
@@ -83,44 +83,11 @@ export async function callContractFunction(
   }
 }
 
-export async function checkResult(
-  txid:   string,
-  guess:  number,
-  onWin:  () => void,
-  onLose: () => void,
-  onHint: (hint: 'hot' | 'warm' | 'cold') => void,
-) {
-  const maxAttempts = 20
-  let attempts = 0
-
-  const poll = async () => {
-    attempts++
-    try {
-      const res  = await fetch(`https://api.mainnet.hiro.so/extended/v1/tx/${txid}`)
-      const data = await res.json()
-
-      if (data.tx_status === 'success') {
-        const event = data.events?.find((e: any) => e.event_type === 'smart_contract_log')
-        const value = event?.contract_log?.value?.repr
-        if (value?.includes('won') || value?.includes('correct')) { onWin(); return }
-        if (value?.includes('lost') || value?.includes('wrong')) {
-          const actual = parseInt(value?.match(/\d+/)?.[0] || '0')
-          if (actual > 0) {
-            const diff = Math.abs(guess - actual) / actual
-            if (diff < 0.01) onHint('hot')
-            else if (diff < 0.05) onHint('warm')
-            else onHint('cold')
-          } else onHint('cold')
-          onLose(); return
-        }
-      }
-      if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') { onLose(); return }
-      if (attempts < maxAttempts) setTimeout(poll, 3000)
-      else onLose()
-    } catch {
-      if (attempts < maxAttempts) setTimeout(poll, 3000)
-      else onLose()
-    }
-  }
-  setTimeout(poll, 3000)
-}
+// NOTE: the old checkResult() (polled a `won`/`lost` smart_contract_log event)
+// was removed 2026-07-17. It only worked against stacks-quest-v2, which
+// determined win/loss synchronously inside `play`. v3 is commit-reveal —
+// `play` emits no such event, the answer isn't known on-chain until the
+// owner calls `reveal-answer`, and correctness is checked via the
+// `is-correct-guess` read-only function after that (see useQuest.ts's
+// getPuzzleByDay/getAttempt/checkIsCorrect + game/page.tsx's status flow).
+// It was confirmed unused (no imports anywhere) before removal.

@@ -1,0 +1,95 @@
+---
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - requirement-publish:
+            contract-id: SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard
+            remap-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            remap-principals:
+              SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 8400
+            path: ".\\.cache\\requirements\\SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.clar"
+            clarity-version: 1
+      epoch: "2.0"
+    - id: 1
+      transactions:
+        - contract-publish:
+            contract-name: b2s-token-v4
+            expected-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 52445
+            path: "contracts\\b2s-token-v4.clar"
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: b2s-token-v5
+            expected-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 52634
+            path: "contracts\\b2s-token-v5-draft.clar"
+            anchor-block-only: true
+            clarity-version: 2
+      epoch: "2.5"
+    - id: 2
+      transactions:
+        - requirement-publish:
+            contract-id: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-registry
+            remap-sender: ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+            remap-principals:
+              SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4: ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+            cost: 112090
+            path: ".\\.cache\\requirements\\SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-registry.clar"
+            clarity-version: 3
+        - requirement-publish:
+            contract-id: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+            remap-sender: ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+            remap-principals:
+              SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4: ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+            cost: 47590
+            path: ".\\.cache\\requirements\\SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token.clar"
+            clarity-version: 3
+        - requirement-publish:
+            contract-id: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-deposit
+            remap-sender: ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+            remap-principals:
+              SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4: ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+            cost: 41510
+            path: ".\\.cache\\requirements\\SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-deposit.clar"
+            clarity-version: 3
+      epoch: "3.0"
+    - id: 3
+      transactions:
+        - requirement-publish:
+            contract-id: SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx
+            remap-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            remap-principals:
+              SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 79150
+            path: ".\\.cache\\requirements\\SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx.clar"
+            clarity-version: 3
+        - contract-publish:
+            contract-name: stacks-quest-agent-v3
+            expected-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 52497
+            path: "contracts\\stacks-quest-agent-v3.clar"
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: stacks-quest-v2
+            expected-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 52977
+            path: "contracts\\stacks-quest-v2.clar"
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: stacks-quest-v3
+            expected-sender: ST1V72500C63KN9E348QDK9X879MASSTN0GWHQZ45
+            cost: 53182
+            path: "contracts\\stacks-quest-v3-draft.clar"
+            anchor-block-only: true
+            clarity-version: 3
+      epoch: "3.2"

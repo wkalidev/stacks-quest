@@ -20,7 +20,7 @@ function checkRateLimit(ip: string): boolean {
 const TOKENS = {
   STX:   { decimals: 6, contract: null, symbol: 'STX' },
   SBTC:  { decimals: 8, contract: 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token', symbol: 'sBTC' },
-  B2S:   { decimals: 6, contract: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4', symbol: '$B2S' },
+  B2S:   { decimals: 6, contract: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v5', symbol: '$B2S' },
   USDCX: { decimals: 6, contract: 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx', symbol: 'USDCx' },
   ALEX:  { decimals: 8, contract: 'SP102V8P0F7JX67ARQ77WEA3D3CFB5XW39REDT0AM.token-alex', symbol: 'ALEX' },
   WELSH: { decimals: 6, contract: 'SP3NE50GEXFG9SZGTT51P40X2CKYSZ5CC4ZTZ7A2G.welshcorgicoin-token', symbol: 'WELSH' },

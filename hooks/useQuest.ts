@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { principalCV, serializeCV } from '@stacks/transactions'
+import { principalCV, serializeCV, uintCV, hexToCV, cvToJSON } from '@stacks/transactions'
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N'
-const CONTRACT_NAME    = process.env.NEXT_PUBLIC_CONTRACT_NAME    || 'stacks-quest-v2'
+const CONTRACT_NAME    = process.env.NEXT_PUBLIC_CONTRACT_NAME    || 'stacks-quest-v3'
 const API              = 'https://api.mainnet.hiro.so'
 
 // ---------------------------------------------------------------------------
@@ -411,7 +411,78 @@ export function useQuest() {
     } catch { return false }
   }
 
-  return { getTodayPuzzle, getPlayerStats, hasPlayedToday, loading, error, txId }
+  // ---------------------------------------------------------------------------
+  // v3 commit-reveal status helpers. `play` no longer tells you if you won -
+  // the answer isn't known on-chain until the owner calls `reveal-answer`
+  // (after the game window closes), so these let the UI poll the real
+  // on-chain state instead of guessing.
+  // ---------------------------------------------------------------------------
+
+  const getCurrentDay = async (addr: string): Promise<number | null> => {
+    try {
+      const result = await readOnly('get-current-day', [], addr)
+      if (!result) return null
+      const json = cvToJSON(hexToCV(result))
+      return Number(json.value)
+    } catch { return null }
+  }
+
+  // Returns { revealed, answer, tolerance } for a given day-id, or null if
+  // that day's puzzle doesn't exist. `answer` is null until reveal-answer.
+  const getPuzzleByDay = async (dayId: number, addr: string) => {
+    try {
+      const result = await readOnly('get-puzzle', [uintToHex(dayId)], addr)
+      if (!result) return null
+      const json = cvToJSON(hexToCV(result))
+      if (json.value === null) return null // (none) - no puzzle that day
+      const fields = json.value.value
+      const answerOpt = fields.answer.value
+      return {
+        revealed:           fields.revealed.value as boolean,
+        answer:             answerOpt === null ? null : Number(answerOpt.value),
+        tolerance:          Number(fields.tolerance.value),
+        registerCloseBlock: Number(fields['register-close-block'].value),
+      }
+    } catch { return null }
+  }
+
+  // Returns { guess, registered, claimed, token } for a player's attempt on a
+  // given day, or null if they didn't play that day.
+  const getAttempt = async (dayId: number, addr: string) => {
+    try {
+      const result = await readOnly('get-attempt', [uintToHex(dayId), principalToHex(addr)], addr)
+      if (!result) return null
+      const json = cvToJSON(hexToCV(result))
+      if (json.value === null) return null
+      const fields = json.value.value
+      return {
+        guess:      Number(fields.guess.value),
+        token:      Number(fields.token.value),
+        registered: fields.registered.value as boolean,
+        claimed:    fields.claimed.value as boolean,
+      }
+    } catch { return null }
+  }
+
+  // Calls the contract's own is-correct-guess read-only function rather than
+  // re-implementing the tolerance math client-side (avoids any risk of the
+  // two disagreeing).
+  const checkIsCorrect = async (guess: number, answer: number, tolerance: number, addr: string): Promise<boolean> => {
+    try {
+      const result = await readOnly(
+        'is-correct-guess',
+        [uintToHex(guess), uintToHex(answer), uintToHex(tolerance)],
+        addr,
+      )
+      return result === '0x03'
+    } catch { return false }
+  }
+
+  return {
+    getTodayPuzzle, getPlayerStats, hasPlayedToday,
+    getCurrentDay, getPuzzleByDay, getAttempt, checkIsCorrect,
+    loading, error, txId,
+  }
 }
 
 // Serialize a principal as a hex-encoded Clarity CV for the Hiro read-only API
@@ -423,4 +494,11 @@ function principalToHex(addr: string): string {
   } catch {
     return addr
   }
+}
+
+// Serialize a uint as a hex-encoded Clarity CV for the Hiro read-only API.
+// Same shape as principalToHex above, kept consistent on purpose.
+function uintToHex(n: number): string {
+  const hex = serializeCV(uintCV(n))
+  return (hex as unknown as string).startsWith('0x') ? (hex as unknown as string) : `0x${hex}`
 }

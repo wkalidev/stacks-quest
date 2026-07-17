@@ -69,7 +69,7 @@ export const TOKENS: Record<string, {
   VELAR: { contract: `${VELAR_ADDR}.velar-token`,                                            decimals: 6, symbol: 'VELAR', name: 'Velar',          color: '#00ff9f' },
   USDCX: { contract: 'SP3Y2ZSH8P7D50B0VBTSX11S7XSG24M1VB9YFQA4K.token-aeusdc',             decimals: 6, symbol: 'aeUSDC',name: 'aeUSDC',         color: '#2775ca' },
   USDA:  { contract: 'SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda-token',                decimals: 6, symbol: 'USDA',  name: 'USDA',           color: '#00d4ff' },
-  B2S:   { contract: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4',              decimals: 6, symbol: '$B2S',  name: 'Base2Stacks',    color: '#00ff9f' },
+  B2S:   { contract: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v5',              decimals: 6, symbol: '$B2S',  name: 'Base2Stacks',    color: '#00ff9f' },
   LEO:   { contract: 'SP1AY6K3PQV5MRT6R4S671NWW2FRVPKM0BR162CT6.leo-token',                decimals: 6, symbol: 'LEO',   name: 'Leo',            color: '#ffd700' },
   STSTX: { contract: 'SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token',               decimals: 6, symbol: 'stSTX', name: 'Stacked STX',    color: '#7b61ff' },
 }

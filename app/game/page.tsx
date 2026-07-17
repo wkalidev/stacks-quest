@@ -3,15 +3,35 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useWallet } from '../../hooks/useWallet'
 import { useQuest } from '../../hooks/useQuest'
+import { callContractFunction } from '../../hooks/useContractCall'
 import ChainSelector from '../../components/ChainSelector'
 import LangPicker from '../../components/LangPicker'
 import { CHAINS, ChainId } from '../lib/chains'
 import { useLang } from '../../hooks/useLang'
 import Link from 'next/link'
 
+// v3 uses a commit-reveal design: `play` only records a guess/bet, it never
+// tells you if you won. The real result only exists on-chain after the owner
+// calls `reveal-answer` (post game window), at which point players call
+// `register-win` (if correct) and then `claim-reward`. This status machine
+// mirrors that lifecycle instead of pretending to know the outcome up front.
+type PuzzleStatus =
+  | 'idle'
+  | 'checking'
+  | 'pending-reveal'
+  | 'incorrect'
+  | 'correct-unregistered'
+  | 'registering'
+  | 'registered-unclaimed'
+  | 'claiming'
+  | 'claimed'
+
 export default function GamePage() {
   const { mounted, isConnected, address, connect } = useWallet()
-  const { getTodayPuzzle, hasPlayedToday, getPlayerStats } = useQuest()
+  const {
+    getTodayPuzzle, hasPlayedToday, getPlayerStats,
+    getCurrentDay, getPuzzleByDay, getAttempt, checkIsCorrect,
+  } = useQuest()
   const { lang, setLang, t } = useLang()
 
   const [puzzle, setPuzzle]         = useState<any>(null)
@@ -20,8 +40,9 @@ export default function GamePage() {
   const [selectedToken, setToken]   = useState('STX')
   const [loading, setLoading]       = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult]         = useState<'hot' | 'warm' | 'cold' | null>(null)
   const [played, setPlayed]         = useState(false)
+  const [dayId, setDayId]           = useState<number | null>(null)
+  const [puzzleStatus, setPuzzleStatus] = useState<PuzzleStatus>('idle')
   const [stats, setStats]           = useState<any>(null)
   const [txId, setTxId]             = useState<string | null>(null)
   const [error, setError]           = useState<string | null>(null)
@@ -43,6 +64,10 @@ export default function GamePage() {
       loadCheckinStatus()
     }
   }, [isConnected, address])
+
+  useEffect(() => {
+    if (played && dayId !== null && address) checkPuzzleStatus(dayId)
+  }, [played, dayId, address])
 
   if (!mounted) return null
 
@@ -69,10 +94,65 @@ export default function GamePage() {
     if (!address) return
     const todayKey = new Date().toISOString().slice(0, 10)
     try {
-      if (localStorage.getItem(`sq_played_${address}_${todayKey}`)) { setPlayed(true); return }
+      const storedDayId = localStorage.getItem(`sq_dayid_${address}_${todayKey}`)
+      if (localStorage.getItem(`sq_played_${address}_${todayKey}`)) {
+        setPlayed(true)
+        if (storedDayId !== null) setDayId(Number(storedDayId))
+        return
+      }
     } catch {}
     const r = await hasPlayedToday(address)
     setPlayed(!!r)
+  }
+
+  // Walks the on-chain commit-reveal state for the day the player played and
+  // sets the UI status accordingly. Never guesses - only shows what's
+  // actually provable on-chain right now.
+  async function checkPuzzleStatus(id: number) {
+    if (!address) return
+    setPuzzleStatus('checking')
+    try {
+      const puzzleInfo = await getPuzzleByDay(id, address)
+      if (!puzzleInfo) { setPuzzleStatus('idle'); return }
+      if (!puzzleInfo.revealed || puzzleInfo.answer === null) {
+        setPuzzleStatus('pending-reveal')
+        return
+      }
+      const attempt = await getAttempt(id, address)
+      if (!attempt) { setPuzzleStatus('idle'); return }
+      if (attempt.claimed) { setPuzzleStatus('claimed'); return }
+      if (attempt.registered) { setPuzzleStatus('registered-unclaimed'); return }
+      const correct = await checkIsCorrect(attempt.guess, puzzleInfo.answer, puzzleInfo.tolerance, address)
+      setPuzzleStatus(correct ? 'correct-unregistered' : 'incorrect')
+    } catch {
+      setPuzzleStatus('idle')
+    }
+  }
+
+  async function handleRegisterWin() {
+    if (!address || dayId === null) return
+    setPuzzleStatus('registering')
+    const { uintCV } = await import('@stacks/transactions')
+    callContractFunction(
+      'stacks-quest-v3',
+      'register-win',
+      [uintCV(dayId)],
+      () => checkPuzzleStatus(dayId),
+      () => setPuzzleStatus('correct-unregistered'),
+    )
+  }
+
+  async function handleClaimReward() {
+    if (!address || dayId === null) return
+    setPuzzleStatus('claiming')
+    const { uintCV } = await import('@stacks/transactions')
+    callContractFunction(
+      'stacks-quest-v3',
+      'claim-reward',
+      [uintCV(dayId)],
+      () => checkPuzzleStatus(dayId),
+      () => setPuzzleStatus('registered-unclaimed'),
+    )
   }
 
   async function loadStats() {
@@ -141,6 +221,11 @@ export default function GamePage() {
     setError(null)
 
     try {
+      // Capture which puzzle day-id this guess belongs to before opening the
+      // wallet popup, so we can poll the right day's on-chain state later
+      // regardless of what "today" is by the time it gets checked.
+      const currentDay = await getCurrentDay(address)
+
       const { openContractCall } = await import('@stacks/connect')
       const stacks = await import('@stacks/transactions')
 
@@ -161,7 +246,7 @@ export default function GamePage() {
 
       await openContractCall({
         contractAddress: CONTRACT,
-        contractName: 'stacks-quest-v2',
+        contractName: 'stacks-quest-v3',
         functionName,
         functionArgs,
         postConditionMode: stacks.PostConditionMode.Allow,
@@ -174,8 +259,14 @@ export default function GamePage() {
             try {
               const todayKey = new Date().toISOString().slice(0, 10)
               localStorage.setItem(`sq_played_${address}_${todayKey}`, '1')
+              if (currentDay !== null) {
+                localStorage.setItem(`sq_dayid_${address}_${todayKey}`, String(currentDay))
+                setDayId(currentDay)
+              }
             } catch {}
-            setResult('warm')
+            // The contract doesn't know the answer yet either - `reveal-answer`
+            // runs later, so all we can honestly say right now is "submitted".
+            setPuzzleStatus('pending-reveal')
           }
           setSubmitting(false)
         },
@@ -187,9 +278,8 @@ export default function GamePage() {
     }
   }
 
-  function generateShareText(r: 'hot' | 'warm' | 'cold') {
-    const emoji = { hot: '🔥', warm: '🌡️', cold: '🧊' }[r]
-    return `${emoji} Stacks Quest Daily #${puzzleNumber}\n🔥 Streak: ${stats?.streak || 0} days\n👉 stacks-quest-ten.vercel.app\n#StacksQuest #Bitcoin #Stacks`
+  function generateShareText() {
+    return `🏆 Stacks Quest Daily #${puzzleNumber}\n🔥 Streak: ${stats?.streak || 0} days\n👉 stacks-quest-ten.vercel.app\n#StacksQuest #Bitcoin #Stacks`
   }
 
   const token = chainTokens.find(t => t.symbol === selectedToken) ?? chainTokens[0]
@@ -281,28 +371,78 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* Already played */}
-        {played && txId && (
-          <div style={{ background: 'rgba(0,255,159,0.05)', border: '1px solid rgba(0,255,159,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <p style={{ color: '#00ff9f', fontWeight: 700, margin: '0 0 8px' }}>
-              {result === 'hot' ? t.hot : result === 'warm' ? t.warm : t.cold}
-            </p>
-            <p style={{ color: '#555', fontSize: 12, margin: '0 0 12px' }}>
-              You&apos;ve played today. Come back tomorrow!
-            </p>
-            <a
-              href={`https://warpcast.com/~/compose?text=${encodeURIComponent(generateShareText(result || 'warm'))}`}
-              target="_blank" rel="noopener noreferrer"
-              style={{ display: 'inline-block', padding: '8px 16px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', borderRadius: 8, fontSize: 12, textDecoration: 'none', fontWeight: 700 }}
-            >
-              🟣 Share on Farcaster
-            </a>
-          </div>
-        )}
-
-        {played && !txId && (
+        {/* Already played - shows real on-chain commit-reveal status, never a guess */}
+        {played && (
           <div style={{ background: 'rgba(153,69,255,0.05)', border: '1px solid rgba(153,69,255,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <p style={{ color: '#9945ff', margin: 0 }}>✓ {t.alreadyPlayed}</p>
+            {(puzzleStatus === 'idle' || puzzleStatus === 'checking') && (
+              <p style={{ color: '#9945ff', margin: 0, fontSize: 13 }}>
+                {puzzleStatus === 'checking' ? 'Checking result…' : `✓ ${t.alreadyPlayed}`}
+              </p>
+            )}
+
+            {puzzleStatus === 'pending-reveal' && (
+              <>
+                <p style={{ color: '#9945ff', fontWeight: 700, margin: '0 0 6px', fontSize: 13 }}>✓ {t.alreadyPlayed}</p>
+                <p style={{ color: '#555', fontSize: 12, margin: 0 }}>
+                  The answer hasn&apos;t been revealed yet. Check back after today&apos;s window closes to see if you won.
+                </p>
+              </>
+            )}
+
+            {puzzleStatus === 'incorrect' && (
+              <p style={{ color: '#888', margin: 0, fontSize: 13 }}>
+                ❄️ Not this time — the answer was revealed and your guess wasn&apos;t within range. Come back tomorrow!
+              </p>
+            )}
+
+            {puzzleStatus === 'correct-unregistered' && (
+              <>
+                <p style={{ color: '#00ff9f', fontWeight: 700, margin: '0 0 8px', fontSize: 13 }}>
+                  🎉 You got it! Register your win to claim your share of the pool.
+                </p>
+                <button
+                  onClick={handleRegisterWin}
+                  style={{ padding: '10px 16px', background: '#00ff9f', color: '#000', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+                >
+                  Register Win
+                </button>
+              </>
+            )}
+
+            {puzzleStatus === 'registering' && (
+              <p style={{ color: '#9945ff', margin: 0, fontSize: 13 }}>Registering your win…</p>
+            )}
+
+            {puzzleStatus === 'registered-unclaimed' && (
+              <>
+                <p style={{ color: '#00ff9f', fontWeight: 700, margin: '0 0 8px', fontSize: 13 }}>
+                  ✓ Win registered. Once the registration window closes, claim your reward.
+                </p>
+                <button
+                  onClick={handleClaimReward}
+                  style={{ padding: '10px 16px', background: '#00ff9f', color: '#000', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+                >
+                  Claim Reward
+                </button>
+              </>
+            )}
+
+            {puzzleStatus === 'claiming' && (
+              <p style={{ color: '#9945ff', margin: 0, fontSize: 13 }}>Claiming your reward…</p>
+            )}
+
+            {puzzleStatus === 'claimed' && (
+              <>
+                <p style={{ color: '#00ff9f', fontWeight: 700, margin: '0 0 8px', fontSize: 13 }}>🏆 Reward claimed!</p>
+                <a
+                  href={`https://warpcast.com/~/compose?text=${encodeURIComponent(generateShareText())}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-block', padding: '8px 16px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', borderRadius: 8, fontSize: 12, textDecoration: 'none', fontWeight: 700 }}
+                >
+                  🟣 Share on Farcaster
+                </a>
+              </>
+            )}
           </div>
         )}
 

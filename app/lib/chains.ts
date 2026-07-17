@@ -8,13 +8,13 @@ export const CHAINS = {
     explorer: 'https://explorer.hiro.so',
     tokens: [
       { symbol: 'STX',    label: 'STX',    address: null,                                                              decimals: 6,  color: '#9945ff', native: true  },
-      { symbol: 'B2S',    label: '$B2S',   address: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v4',        decimals: 6,  color: '#00ff9f', native: false },
+      { symbol: 'B2S',    label: '$B2S',   address: 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.b2s-token-v5',        decimals: 6,  color: '#00ff9f', native: false },
       { symbol: 'USDCX',  label: 'USDCx',  address: 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx',              decimals: 6,  color: '#2775ca', native: false },
       { symbol: 'AEUSDC', label: 'aeUSDC', address: 'SP3Y2ZSH8P7D50B0JBTCSJ7E9VER8HDVT0W8K0QQZ.token-aeusdc',      decimals: 6,  color: '#00adef', native: false },
       { symbol: 'SBTC',   label: 'sBTC',   address: 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token',         decimals: 8,  color: '#f7931a', native: false },
     ],
     contracts: {
-      game:    process.env.NEXT_PUBLIC_STACKS_QUEST_GAME    || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.stacks-quest-v2',
+      game:    process.env.NEXT_PUBLIC_STACKS_QUEST_GAME    || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.stacks-quest-v3',
       checkIn: process.env.NEXT_PUBLIC_STACKS_QUEST_CHECKIN || 'SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N.stacks-quest-agent-v3',
     },
   },

@@ -121,11 +121,21 @@ export class StacksQuestSDK {
     return map[chain]
   }
 
-  /** Get contract addresses for a chain */
+  /**
+   * Get contract addresses for a chain.
+   *
+   * NOTE (Stacks `game` contract): as of stacks-quest-v3, `play` no longer
+   * determines win/loss synchronously. It's a commit-reveal design — the
+   * puzzle answer stays hidden on-chain until the owner calls
+   * `reveal-answer` after the game window closes. Correct guessers then
+   * call `register-win`, then `claim-reward`. Any integration calling
+   * `play` directly on this contract must account for that async flow
+   * instead of expecting an immediate result.
+   */
   getContracts(chain: Chain): { game: string; checkIn: string } {
     const map: Record<Chain, { game: string; checkIn: string }> = {
       stacks: {
-        game:    `${this.DEFAULTS.stacksContract}.stacks-quest-v2`,
+        game:    `${this.DEFAULTS.stacksContract}.stacks-quest-v3`,
         checkIn: `${this.DEFAULTS.stacksContract}.stacks-quest-agent-v3`,
       },
       base: {
