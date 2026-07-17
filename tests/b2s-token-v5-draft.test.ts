@@ -11,7 +11,7 @@ import { Cl } from "@stacks/transactions";
 // (npm install is unreliable there against this repo's synced-folder mount). Run
 // locally and report back if anything fails.
 
-const CONTRACT = "b2s-token-v5-draft";
+const CONTRACT = "b2s-token-v5"; // matches Clarinet.toml's target deployment name
 const BLOCK_BUCKET = 144;
 const CLAIM_AMOUNT = 5000000; // 5 B2S, 6 decimals
 const FAUCET_BUDGET = 15000000000000; // 15,000,000 B2S

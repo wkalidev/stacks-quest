@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 // sandbox (npm install is unreliable against this repo's synced-folder mount there).
 // Run locally and report back if anything fails — happy to fix.
 
-const CONTRACT = "stacks-quest-v3-draft";
+const CONTRACT = "stacks-quest-v3"; // matches Clarinet.toml's target deployment name
 
 const accounts = simnet.getAccounts();
 const deployer = accounts.get("deployer")!;

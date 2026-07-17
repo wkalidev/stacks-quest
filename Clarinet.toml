@@ -47,16 +47,20 @@ path = 'contracts/stacks-quest-agent-v3.clar'
 clarity_version = 3
 epoch = '3.2'
 
-# DRAFT — non déployé, ajouté uniquement pour clarinet check / tests locaux.
+# DRAFT (source file) — pas encore déployé. Enregistré ici sous son nom de
+# déploiement CIBLE ("stacks-quest-v3", sans "-draft") pour que clarinet
+# check / les tests valident exactement les références inter-contrats
+# (.b2s-token-v5) qui seront utilisées une fois déployé pour de vrai.
 # Fixe la faille CRITIQUE "réponse du puzzle publique on-chain" (voir SECURITY.md).
-[contracts.stacks-quest-v3-draft]
+[contracts.stacks-quest-v3]
 path = 'contracts/stacks-quest-v3-draft.clar'
 clarity_version = 3
 epoch = '3.2'
 
-# DRAFT — non déployé, ajouté uniquement pour clarinet check / tests locaux.
+# DRAFT (source file) — pas encore déployé. Enregistré sous son nom de
+# déploiement CIBLE ("b2s-token-v5", sans "-draft") — voir note ci-dessus.
 # Fixe la faille CRITIQUE "faucet B2S illimité" (voir SECURITY.md).
-[contracts.b2s-token-v5-draft]
+[contracts.b2s-token-v5]
 path = 'contracts/b2s-token-v5-draft.clar'
 clarity_version = 2
 epoch = '2.5'

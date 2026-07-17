@@ -86,7 +86,13 @@
 (define-constant TOKEN-USDCX u2)
 (define-constant TOKEN-SBTC  u3)
 
-(define-constant B2S   .b2s-token-v4)
+;; NOTE: relative principal - resolves to <deployer-address>.b2s-token-v5 at
+;; runtime. This means b2s-token-v5 MUST be deployed from the SAME address
+;; BEFORE this contract, using exactly this contract name, or every B2S bet/
+;; payout call in this contract fails. Points at the fixed capped-faucet
+;; token (not the still-vulnerable b2s-token-v4) - fixed 2026-07-17, was
+;; wrongly left pointing at v4 in the initial draft.
+(define-constant B2S   .b2s-token-v5)
 (define-constant USDCX 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx)
 (define-constant SBTC  'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token)
 

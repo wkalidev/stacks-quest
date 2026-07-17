@@ -50,7 +50,7 @@ plan:
       path: contracts/b2s-token-v4.clar
       clarity-version: 2
     - transaction-type: emulated-contract-publish
-      contract-name: b2s-token-v5-draft
+      contract-name: b2s-token-v5
       emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
       path: contracts/b2s-token-v5-draft.clar
       clarity-version: 2
@@ -81,7 +81,7 @@ plan:
       path: contracts/stacks-quest-v2.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
-      contract-name: stacks-quest-v3-draft
+      contract-name: stacks-quest-v3
       emulated-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
       path: contracts/stacks-quest-v3-draft.clar
       clarity-version: 3
