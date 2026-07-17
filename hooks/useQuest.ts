@@ -356,19 +356,31 @@ export function useQuest() {
   const [error,   setError]   = useState<string | null>(null)
   const [txId,    setTxId]    = useState<string | null>(null)
 
-  const readOnly = async (fn: string, args: any[], sender: string) => {
-    try {
-      const res = await fetch(
-        `${API}/v2/contracts/call-read/${CONTRACT_ADDRESS}/${CONTRACT_NAME}/${fn}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sender, arguments: args }),
-        }
-      )
-      const data = await res.json()
-      return data?.result
-    } catch { return null }
+  // Throws on any failure (network, non-2xx, or a Clarity-level `okay: false`)
+  // instead of silently returning null. A genuine Clarity `(none)` response
+  // still comes back as a valid hex string (e.g. "0x09") - it is NOT
+  // indistinguishable from "the read failed". Swallowing errors here used to
+  // make "we couldn't check" and "there's definitely nothing there" look
+  // identical to callers, which is how a failed status check turned into a
+  // wrongly-shown "already played, come back tomorrow" instead of a real
+  // pending/error state. Callers that want a tolerant read (fine to fail
+  // silently) should catch locally; callers checking on-chain game state
+  // should let this propagate so the UI can tell the difference.
+  const readOnly = async (fn: string, args: any[], sender: string): Promise<string> => {
+    const res = await fetch(
+      `${API}/v2/contracts/call-read/${CONTRACT_ADDRESS}/${CONTRACT_NAME}/${fn}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender, arguments: args }),
+      }
+    )
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data?.okay) {
+      console.error(`[useQuest] read-only "${fn}" failed:`, res.status, data?.cause ?? data)
+      throw new Error(`read-only ${fn} failed (${res.status}): ${data?.cause ?? 'unknown'}`)
+    }
+    return data.result
   }
 
   const getTodayPuzzle = async () => {
@@ -418,64 +430,68 @@ export function useQuest() {
   // on-chain state instead of guessing.
   // ---------------------------------------------------------------------------
 
+  // Tolerant on purpose: used to opportunistically tag a play() with a
+  // day-id, and gates a useEffect elsewhere. Failing silently here just
+  // means we won't be able to poll status later - it can't corrupt what
+  // "status" gets shown, unlike the functions below.
   const getCurrentDay = async (addr: string): Promise<number | null> => {
     try {
       const result = await readOnly('get-current-day', [], addr)
-      if (!result) return null
       const json = cvToJSON(hexToCV(result))
       return Number(json.value)
-    } catch { return null }
+    } catch (e) {
+      console.error('[useQuest] getCurrentDay failed:', e)
+      return null
+    }
   }
 
   // Returns { revealed, answer, tolerance } for a given day-id, or null if
-  // that day's puzzle doesn't exist. `answer` is null until reveal-answer.
+  // that day's puzzle *genuinely doesn't exist on-chain* (Clarity `(none)`).
+  // Deliberately does NOT catch here - a failed read (network/CORS/etc.)
+  // throws instead of returning the same `null` a real "(none)" would, so
+  // the caller (game/page.tsx's checkPuzzleStatus) can tell "no puzzle" apart
+  // from "couldn't check" and never show a false "already played, come back
+  // tomorrow" when the truth is just "we don't know yet".
   const getPuzzleByDay = async (dayId: number, addr: string) => {
-    try {
-      const result = await readOnly('get-puzzle', [uintToHex(dayId)], addr)
-      if (!result) return null
-      const json = cvToJSON(hexToCV(result))
-      if (json.value === null) return null // (none) - no puzzle that day
-      const fields = json.value.value
-      const answerOpt = fields.answer.value
-      return {
-        revealed:           fields.revealed.value as boolean,
-        answer:             answerOpt === null ? null : Number(answerOpt.value),
-        tolerance:          Number(fields.tolerance.value),
-        registerCloseBlock: Number(fields['register-close-block'].value),
-      }
-    } catch { return null }
+    const result = await readOnly('get-puzzle', [uintToHex(dayId)], addr)
+    const json = cvToJSON(hexToCV(result))
+    if (json.value === null) return null // (none) - no puzzle that day
+    const fields = json.value.value
+    const answerOpt = fields.answer.value
+    return {
+      revealed:           fields.revealed.value as boolean,
+      answer:             answerOpt === null ? null : Number(answerOpt.value),
+      tolerance:          Number(fields.tolerance.value),
+      registerCloseBlock: Number(fields['register-close-block'].value),
+    }
   }
 
   // Returns { guess, registered, claimed, token } for a player's attempt on a
-  // given day, or null if they didn't play that day.
+  // given day, or null if they genuinely didn't play that day. Same
+  // let-it-throw-on-read-failure contract as getPuzzleByDay above.
   const getAttempt = async (dayId: number, addr: string) => {
-    try {
-      const result = await readOnly('get-attempt', [uintToHex(dayId), principalToHex(addr)], addr)
-      if (!result) return null
-      const json = cvToJSON(hexToCV(result))
-      if (json.value === null) return null
-      const fields = json.value.value
-      return {
-        guess:      Number(fields.guess.value),
-        token:      Number(fields.token.value),
-        registered: fields.registered.value as boolean,
-        claimed:    fields.claimed.value as boolean,
-      }
-    } catch { return null }
+    const result = await readOnly('get-attempt', [uintToHex(dayId), principalToHex(addr)], addr)
+    const json = cvToJSON(hexToCV(result))
+    if (json.value === null) return null
+    const fields = json.value.value
+    return {
+      guess:      Number(fields.guess.value),
+      token:      Number(fields.token.value),
+      registered: fields.registered.value as boolean,
+      claimed:    fields.claimed.value as boolean,
+    }
   }
 
   // Calls the contract's own is-correct-guess read-only function rather than
   // re-implementing the tolerance math client-side (avoids any risk of the
-  // two disagreeing).
+  // two disagreeing). Also let-it-throw on read failure - see getPuzzleByDay.
   const checkIsCorrect = async (guess: number, answer: number, tolerance: number, addr: string): Promise<boolean> => {
-    try {
-      const result = await readOnly(
-        'is-correct-guess',
-        [uintToHex(guess), uintToHex(answer), uintToHex(tolerance)],
-        addr,
-      )
-      return result === '0x03'
-    } catch { return false }
+    const result = await readOnly(
+      'is-correct-guess',
+      [uintToHex(guess), uintToHex(answer), uintToHex(tolerance)],
+      addr,
+    )
+    return result === '0x03'
   }
 
   return {

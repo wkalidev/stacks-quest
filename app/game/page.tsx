@@ -25,6 +25,7 @@ type PuzzleStatus =
   | 'registered-unclaimed'
   | 'claiming'
   | 'claimed'
+  | 'check-failed'
 
 export default function GamePage() {
   const { mounted, isConnected, address, connect } = useWallet()
@@ -108,24 +109,35 @@ export default function GamePage() {
   // Walks the on-chain commit-reveal state for the day the player played and
   // sets the UI status accordingly. Never guesses - only shows what's
   // actually provable on-chain right now.
+  //
+  // IMPORTANT: getPuzzleByDay/getAttempt/checkIsCorrect throw on a read
+  // failure (network/CORS/etc.) rather than returning null, specifically so
+  // this can tell "we checked and there's genuinely nothing there yet" apart
+  // from "the check itself failed". Collapsing both into the same fallback
+  // used to show a false "already played, come back tomorrow" when the
+  // real answer was "we don't know, try again" - see AUDIT notes 2026-07-17.
   async function checkPuzzleStatus(id: number) {
     if (!address) return
     setPuzzleStatus('checking')
     try {
       const puzzleInfo = await getPuzzleByDay(id, address)
-      if (!puzzleInfo) { setPuzzleStatus('idle'); return }
+      if (!puzzleInfo) { setPuzzleStatus('idle'); return } // genuinely no puzzle for this day
       if (!puzzleInfo.revealed || puzzleInfo.answer === null) {
         setPuzzleStatus('pending-reveal')
         return
       }
       const attempt = await getAttempt(id, address)
-      if (!attempt) { setPuzzleStatus('idle'); return }
+      if (!attempt) { setPuzzleStatus('idle'); return } // genuinely no attempt recorded
       if (attempt.claimed) { setPuzzleStatus('claimed'); return }
       if (attempt.registered) { setPuzzleStatus('registered-unclaimed'); return }
       const correct = await checkIsCorrect(attempt.guess, puzzleInfo.answer, puzzleInfo.tolerance, address)
       setPuzzleStatus(correct ? 'correct-unregistered' : 'incorrect')
-    } catch {
-      setPuzzleStatus('idle')
+    } catch (e) {
+      // The check itself failed (network, CORS, API hiccup) - NOT the same
+      // as "nothing to see here". Surface it honestly with a retry instead
+      // of silently claiming the player is done for the day.
+      console.error('[game] checkPuzzleStatus failed:', e)
+      setPuzzleStatus('check-failed')
     }
   }
 
@@ -378,6 +390,23 @@ export default function GamePage() {
               <p style={{ color: '#9945ff', margin: 0, fontSize: 13 }}>
                 {puzzleStatus === 'checking' ? 'Checking result…' : `✓ ${t.alreadyPlayed}`}
               </p>
+            )}
+
+            {puzzleStatus === 'check-failed' && (
+              <>
+                <p style={{ color: '#ff9944', fontWeight: 700, margin: '0 0 6px', fontSize: 13 }}>
+                  ⚠️ Couldn&apos;t check your result right now.
+                </p>
+                <p style={{ color: '#555', fontSize: 12, margin: '0 0 10px' }}>
+                  You&apos;ve played today — this is just a network hiccup checking the on-chain status, not a lost entry.
+                </p>
+                <button
+                  onClick={() => dayId !== null && checkPuzzleStatus(dayId)}
+                  style={{ padding: '8px 14px', background: 'rgba(255,153,68,0.15)', border: '1px solid rgba(255,153,68,0.4)', color: '#ff9944', borderRadius: 8, fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'monospace' }}
+                >
+                  Retry
+                </button>
+              </>
             )}
 
             {puzzleStatus === 'pending-reveal' && (
