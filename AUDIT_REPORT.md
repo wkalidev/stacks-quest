@@ -377,3 +377,53 @@ listé dans les sections 1 et 1bis est en prod.
 
 Dis-moi quand tu veux avancer sur l'un de ces trois points, ou si tu veux que je committe
 ce round 3 (facilitator + drafts + doc) dès maintenant.
+
+---
+
+## Round 6 : x402 testé en réel, wallet connect réparé, tokenomics des drafts finalisées
+
+**1. Facilitator x402 — testé avec un vrai paiement signé (point 1 du round 3, résolu).**
+Bug trouvé en testant : `paymentRequired()` dans `app/api/mcp/route.ts` mettait
+`x402Version`/`accepts` uniquement dans un header custom `X-Payment-Required` (base64), pas
+dans le corps JSON — tout client x402 générique (dont `x402-fetch`) lit `accepts`
+directement dans le corps et plantait (`Cannot read properties of undefined`). Corrigé :
+ces champs sont maintenant aussi à la racine du corps JSON, en plus de l'enveloppe
+JSON-RPC. Testé en conditions réelles : paiement signé en USDC sur Base, vérifié/réglé par
+le facilitator, réponse `200` avec les vraies stats du joueur. Commit poussé, en prod.
+
+**2. Wallet connect cassé — trouvé et réparé (bug non listé dans l'audit initial).**
+`hooks/useWallet.ts` appelait `showConnect`, supprimé depuis `@stacks/connect@8.2.6`
+(remplacé par le standard SIP-030). Deux bugs successifs corrigés : (a) `showConnect` →
+`connect()` ; (b) le code cherchait l'adresse Stacks via `addresses.find(a => a.symbol ===
+'STX')`, mais la plupart des wallets (dont Xverse) ne remplissent pas ce champ `symbol` —
+corrigé pour identifier l'adresse par son format (`SP`/`ST...`) au lieu du symbole. Testé
+en réel avec Xverse sur Brave, connexion confirmée. Commit poussé, en prod.
+
+**3. Tokenomics des deux drafts (point 3 du round 3) — finalisées, pas encore déployées.**
+- **Stratégie de migration : nouveau départ.** Les contrats `stacks-quest-v3-draft.clar` et
+  `b2s-token-v5-draft.clar` seront déployés comme nouveaux contrats à zéro, sans migration
+  des soldes/état des contrats v2/v4 actuels. Décision basée sur : projet encore jeune (voir
+  score de qualité 8004scan 30.4/100, 0 feedback, faible traction), donc pas de solde
+  significatif de vrais joueurs à migrer à ce stade. Point important découvert en cours de
+  route : `b2s-token-v4` n'a **aucun mécanisme de pause** — son faucet vulnérable restera
+  exploitable pour toujours quoi qu'on choisisse (contrats Clarity immuables), donc le choix
+  de migration ne change rien à la sécurité de l'ancien contrat, seulement à l'équité envers
+  d'éventuels détenteurs existants.
+- **FAUCET-BUDGET finalisé à 15 000 000 B2S** (1,5% du plafond théorique de 1B), réduit
+  depuis le placeholder initial de 50M à la demande du propriétaire.
+- **MAX-CLAIMS-PER-ADDRESS (30) et REGISTER-WINDOW-BLOCKS (144, ~1 jour)** : placeholders
+  acceptés tels quels comme valeurs finales.
+- Tests mis à jour pour refléter le nouveau `FAUCET_BUDGET` — à relancer (`npm test`) avant
+  tout déploiement pour confirmer que les 30 tests passent toujours avec la nouvelle valeur.
+
+## Ce qu'il te reste à trancher — round 6
+
+1. Confirmer que `npm test` passe toujours avec `FAUCET-BUDGET` à 15M (à relancer chez toi).
+2. Déploiement mainnet des deux contrats — nécessite ta clé privée, je ne peux pas le faire
+   depuis cet environnement. Une fois déployés : mettre à jour les adresses de contrat dans
+   l'app (`app/api/mcp/route.ts`, `hooks/useContractCall.ts`, `hooks/useQuest.ts`, etc. —
+   actuellement toutes en dur sur `SP1V72500C63KN9E348QDK9X879MASSTN0J3KBQ5N`).
+3. Envisager un audit professionnel avant que ces contrats touchent de vrais fonds
+   significatifs (toujours pas fait, comme noté depuis le round 3).
+4. Hardhat 3.x (point 2 du round 4) — toujours en attente, pas urgent (dépendance dev
+   uniquement, n'affecte pas la sécurité de prod).

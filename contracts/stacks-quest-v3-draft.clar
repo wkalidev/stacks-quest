@@ -42,15 +42,21 @@
 ;; 5. Losers still don't get a bet refund (unchanged from v2 economics) - bets
 ;;    from non-winners simply remain in the contract, exactly as in v2.
 ;;
+;; TOKENOMICS / ROLLOUT - finalized 2026-07-17 (owner decision):
+;;   - REGISTER-WINDOW-BLOCKS: 144 blocks (~1 day), accepted as final.
+;;   - Migration strategy: fresh start. This is a NEW contract at a new
+;;     address starting with no in-flight puzzles or pool balances. v2's
+;;     existing state is NOT migrated - the project is early-stage, so a
+;;     manual migration wasn't judged worth the added complexity/risk. v2
+;;     stays deployed with its public-answer flaw permanently unfixed (Clarity
+;;     contracts are immutable); the app simply stops referencing it once this
+;;     ships.
+;;
 ;; OPEN QUESTIONS FOR WHOEVER PICKS THIS UP:
 ;;   - What happens if the owner never calls `reveal-answer` (griefing /
 ;;     forgetting)? Right now bets are stuck forever. Consider a timeout after
 ;;     which players can reclaim their own bet if `revealed` is still false
 ;;     N blocks after `end-block`.
-;;   - REGISTER-WINDOW-BLOCKS below is a placeholder (144 blocks / ~1 day) -
-;;     pick a real value.
-;;   - Migrating existing v2 reward-pool balances / in-flight puzzles to this
-;;     contract is a separate, manual, one-time operation - not covered here.
 ;;   - Get this professionally audited before it ever touches real funds.
 ;; ============================================================================
 

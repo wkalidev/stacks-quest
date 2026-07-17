@@ -32,10 +32,20 @@
 ;;    (many low-activity addresses each claiming exactly MAX times).
 ;; 3. Same u144-block (~1 day) per-address rate limit as v4, unchanged.
 ;;
+;; TOKENOMICS - finalized 2026-07-17 (owner decision):
+;;   - FAUCET-BUDGET: 15,000,000 B2S (1.5% of the 1B hard cap).
+;;   - MAX-CLAIMS-PER-ADDRESS: 30 (unchanged placeholder, accepted as final).
+;;   - Migration strategy: fresh start. This is a NEW token contract starting
+;;     at zero balances. b2s-token-v4's existing balances are NOT migrated -
+;;     the project is early-stage (no meaningful real holder balances at
+;;     decision time) so a snapshot+airdrop migration wasn't judged worth the
+;;     added complexity/risk. b2s-token-v4 stays deployed and its faucet
+;;     remains exploitable forever (Clarity contracts are immutable, it has no
+;;     pause mechanism) - this is unrelated to which migration path is chosen,
+;;     since v4 could never be secured retroactively either way. The app
+;;     simply stops referencing v4 once this ships.
+;;
 ;; OPEN QUESTIONS FOR WHOEVER PICKS THIS UP:
-;;   - FAUCET-BUDGET and MAX-CLAIMS-PER-ADDRESS below are placeholders - pick
-;;     real values based on target tokenomics (% of total supply you're
-;;     willing to give away via the faucet).
 ;;   - This still does not stop sybil attacks outright, only bounds the damage
 ;;     and raises the cost. A real proof-of-personhood check, or tying claims
 ;;     to actual quest-game participation (e.g. require a minimum streak via
@@ -56,9 +66,9 @@
 (define-constant e6 (err u105)) ;; faucet budget exhausted
 (define-constant e7 (err u106)) ;; per-address lifetime claim cap reached
 
-;; Placeholders - pick real values before deploying.
-;; 50,000,000 B2S (5% of the 1B hard cap) ever mintable via the faucet.
-(define-constant FAUCET-BUDGET u50000000000000)
+;; 15,000,000 B2S (1.5% of the 1B hard cap) ever mintable via the faucet.
+;; Finalized 2026-07-17 (owner decision, see AUDIT_REPORT.md).
+(define-constant FAUCET-BUDGET u15000000000000)
 ;; 5 B2S per claim (unchanged from v4).
 (define-constant CLAIM-AMOUNT u5000000)
 ;; Max lifetime claims per address (30 claims * 5 B2S = 150 B2S per wallet max).

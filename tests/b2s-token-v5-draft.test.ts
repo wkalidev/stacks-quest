@@ -14,7 +14,7 @@ import { Cl } from "@stacks/transactions";
 const CONTRACT = "b2s-token-v5-draft";
 const BLOCK_BUCKET = 144;
 const CLAIM_AMOUNT = 5000000; // 5 B2S, 6 decimals
-const FAUCET_BUDGET = 50000000000000; // 50,000,000 B2S
+const FAUCET_BUDGET = 15000000000000; // 15,000,000 B2S
 const MAX_CLAIMS_PER_ADDRESS = 30;
 
 const accounts = simnet.getAccounts();
