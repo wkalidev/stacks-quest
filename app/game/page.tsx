@@ -271,6 +271,30 @@ export default function GamePage() {
       // regardless of what "today" is by the time it gets checked.
       const currentDay = await getCurrentDay(address)
 
+      // Re-verify a puzzle exists RIGHT NOW, not just trust the `puzzleLive`
+      // state from whenever the page first loaded. That state is only set
+      // once (on mount / wallet connect) and never refreshed - a player who
+      // leaves /game open across a day-id boundary, or simply loads it well
+      // before submitting, can otherwise still fire a play() call that's
+      // doomed to revert with ERR-NO-GAME-TODAY. This hit a real player in
+      // prod (2026-07-18) despite the mount-time check passing earlier.
+      // Fails open on a read error (unknown != confirmed-absent) - the
+      // contract itself is still the final authority either way.
+      if (currentDay !== null) {
+        try {
+          const freshPuzzle = await getPuzzleByDay(currentDay, address)
+          if (!freshPuzzle) {
+            setPuzzleLive(false)
+            setError('No puzzle is live today yet. The owner needs to create one first — check back soon.')
+            setSubmitting(false)
+            return
+          }
+          setPuzzleLive(true)
+        } catch (e) {
+          console.error('[game] fresh puzzle-live re-check failed, proceeding anyway:', e)
+        }
+      }
+
       const { openContractCall } = await import('@stacks/connect')
       const stacks = await import('@stacks/transactions')
 
